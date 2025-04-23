@@ -125,7 +125,7 @@ class ExampleScreen extends StatelessWidget {
 ## Real-world Example
 
 The ProxyNetworkImage works with images like:
-- `https://cdn-cs-prod.s3.ap-southeast-1.amazonaws.com/20250422/image/57ae968a8a876c76aa04a406f6869cdb`
+- `https://example.com/image-with-cors-issues.jpg`
 
 Which typically fails with standard Flutter Image.network due to CORS restrictions.
 

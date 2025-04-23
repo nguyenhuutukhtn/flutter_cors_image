@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.6
+* Fixed: Resolved tap event conflicts in ListViews with mixed HTML fallback and normal images
+* Update README.md
 ## 0.1.5
 
 * Fixed: Resolved tap event conflicts in ListViews with mixed HTML fallback and normal images
