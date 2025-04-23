@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+* Updated intl dependency to support a wider range of versions (>=0.19.0 <0.21.0)
+* Improved compatibility with projects that depend on intl 0.19.0
+
 ## 0.1.0
 
 * Initial release with two image loading solutions:
