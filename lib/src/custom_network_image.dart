@@ -35,6 +35,12 @@ class CustomNetworkImage extends StatefulWidget {
   
   /// Callback when the image is tapped
   final VoidCallback? onTap;
+  
+  /// TransformationController for supporting zooming with InteractiveViewer
+  final TransformationController? transformationController;
+  
+  /// Optional unique ID if needed to handle multiple similar images
+  final String? uniqueId;
 
   /// Creates a CustomNetworkImage.
   ///
@@ -64,28 +70,40 @@ class CustomNetworkImage extends StatefulWidget {
     this.loadingBuilder,
     this.errorBuilder,
     this.onTap,
+    this.transformationController,
+    this.uniqueId,
   }) : super(key: key);
 
   @override
   State<CustomNetworkImage> createState() => _CustomNetworkImageState();
 }
 
-class _CustomNetworkImageState extends State<CustomNetworkImage> {
+class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTickerProviderStateMixin {
   bool _loadError = false;
   final GlobalKey _key = GlobalKey();
   late final String _viewType;
-
+  Matrix4? _lastTransformation;
+  // Animation controller for smoother transformation updates
+  late AnimationController _transformSyncController;
+  
   @override
   void initState() {
     super.initState();
     // Create a unique view type name for this widget instance
-    _viewType = 'html-image-${widget.url.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
+    // Include uniqueId if provided for better isolation in ListViews
+    _viewType = 'html-image-${widget.uniqueId ?? widget.url.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
+    
+    // Initialize animation controller for frequent transformation updates
+    _transformSyncController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 16), // ~60fps
+    );
     
     // Register the view factory early if on web and likely to need it
     if (kIsWeb) {
       // Register the tap callback if we have one
       if (widget.onTap != null) {
-        setHtmlImageTapCallback(() {
+        setHtmlImageTapCallback(_viewType, () {
           if (widget.onTap != null) {
             widget.onTap!();
           }
@@ -93,10 +111,126 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> {
       }
       
       registerHtmlImageFactory(_viewType, widget.url);
+      
+      // Add transformation listener if controller is provided
+      if (widget.transformationController != null) {
+        widget.transformationController!.addListener(_handleTransformationChange);
+        
+        // Start the animation for continuous transformation updates
+        _transformSyncController.repeat();
+        _transformSyncController.addListener(_checkForTransformationUpdates);
+      }
     }
     
     // Try loading the image first
     _preloadImage();
+  }
+  
+  @override
+  void didUpdateWidget(CustomNetworkImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // If URL or uniqueId changed, we need to update our references
+    bool needsViewUpdate = oldWidget.url != widget.url || 
+                          oldWidget.uniqueId != widget.uniqueId;
+    
+    if (needsViewUpdate && kIsWeb && _loadError) {
+      // Clean up old references
+      removeHtmlImageTapCallback(_viewType);
+      cleanupHtmlElement(_viewType);
+      
+      // Create new view type
+      final newViewType = 'html-image-${widget.uniqueId ?? widget.url.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
+      
+      // Register new callback and factory
+      if (widget.onTap != null) {
+        setHtmlImageTapCallback(newViewType, () {
+          if (widget.onTap != null) {
+            widget.onTap!();
+          }
+        });
+      }
+      
+      registerHtmlImageFactory(newViewType, widget.url);
+      
+      // Update view type
+      _viewType = newViewType;
+      
+      // Force reload
+      _preloadImage();
+    }
+    
+    // Handle transformation controller changes
+    if (oldWidget.transformationController != widget.transformationController) {
+      if (oldWidget.transformationController != null) {
+        oldWidget.transformationController!.removeListener(_handleTransformationChange);
+      }
+      
+      if (widget.transformationController != null) {
+        widget.transformationController!.addListener(_handleTransformationChange);
+        
+        // Ensure animation controller is running if needed
+        if (!_transformSyncController.isAnimating && kIsWeb && _loadError) {
+          _transformSyncController.repeat();
+        }
+      } else if (_transformSyncController.isAnimating) {
+        _transformSyncController.stop();
+      }
+    }
+    
+    // If onTap changed, update the callback
+    if (oldWidget.onTap != widget.onTap && kIsWeb && _loadError) {
+      if (widget.onTap != null) {
+        setHtmlImageTapCallback(_viewType, () {
+          if (widget.onTap != null) {
+            widget.onTap!();
+          }
+        });
+      } else {
+        removeHtmlImageTapCallback(_viewType);
+      }
+    }
+  }
+  
+  @override
+  void dispose() {
+    // Clean up HTML resources
+    if (kIsWeb) {
+      removeHtmlImageTapCallback(_viewType);
+      cleanupHtmlElement(_viewType);
+    }
+    
+    // Remove transformation listener
+    if (widget.transformationController != null) {
+      widget.transformationController!.removeListener(_handleTransformationChange);
+    }
+    
+    // Dispose animation controller
+    _transformSyncController.dispose();
+    
+    super.dispose();
+  }
+  
+  // Continuously check for transformation changes for smoother updates
+  void _checkForTransformationUpdates() {
+    if (kIsWeb && _loadError && widget.transformationController != null) {
+      // Only update if we're using HTML fallback and have a transformation controller
+      final matrix = widget.transformationController!.value;
+      if (_lastTransformation != matrix) {
+        updateHtmlImageTransform(_viewType, matrix);
+        _lastTransformation = matrix;
+      }
+    }
+  }
+  
+  // Handle discrete transformation changes
+  void _handleTransformationChange() {
+    if (!kIsWeb || !_loadError || widget.transformationController == null) return;
+    
+    // This is called when the controller value changes programmatically
+    final matrix = widget.transformationController!.value;
+    updateHtmlImageTransform(_viewType, matrix);
+    _lastTransformation = matrix;
   }
 
   void _preloadImage() {
@@ -111,6 +245,11 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> {
           setState(() {
             _loadError = false;
           });
+          
+          // Stop animation controller if not needed
+          if (_transformSyncController.isAnimating) {
+            _transformSyncController.stop();
+          }
         }
       },
       onError: (dynamic error, StackTrace? stackTrace) {
@@ -120,6 +259,11 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> {
           setState(() {
             _loadError = true;
           });
+          
+          // Start animation controller for frequent updates
+          if (widget.transformationController != null && !_transformSyncController.isAnimating) {
+            _transformSyncController.repeat();
+          }
         }
       },
     ));
@@ -205,9 +349,14 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> {
   }
 
   Widget _buildHtmlImageView() {
+    // If we have a transformation controller, make sure it's reflected in HTML
+    if (widget.transformationController != null) {
+      updateHtmlImageTransform(_viewType, widget.transformationController!.value);
+    }
+    
     // Use HtmlElementView for web platforms
     return kIsWeb
-        ? Container(
+        ? SizedBox(
             width: widget.width,
             height: widget.height,
             child: HtmlElementView(
