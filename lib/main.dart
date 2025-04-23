@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:intl/intl.dart';
-import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:async';
 import 'package:extended_image/extended_image.dart';
@@ -10,7 +8,6 @@ import 'package:image/image.dart' as img;
 
 // Conditional imports for web platform
 // ignore: avoid_web_libraries_in_flutter
-import 'package:flutter/widgets.dart';
 
 // For conditional import:
 import 'web_image_loader.dart' if (dart.library.io) 'stub_image_loader.dart';
@@ -19,9 +16,6 @@ import 'proxy_network_image_export.dart';
 // These imports will be used on web only
 // ignore: unused_import
 import 'dart:js_interop';
-
-// For conditional import in actual implementation:
-// import 'web_image_loader.dart' if (dart.library.io) 'stub_image_loader.dart';
 
 void main() {
   runApp(const MyApp());
@@ -109,6 +103,7 @@ class _ImageScreenState extends State<ImageScreen> {
         // Use base64 approach for web
         try {
           final base64String = base64Encode(originalBytes);
+          print('Base64 image size: ${base64String.length}');
           setState(() {
             processedImageBytes = originalBytes;
             isLoading = false;
