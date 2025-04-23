@@ -32,6 +32,9 @@ class CustomNetworkImage extends StatefulWidget {
   final bool isAntiAlias;
   final Widget Function(BuildContext, Widget, ImageChunkEvent?)? loadingBuilder;
   final Widget Function(BuildContext, Object, StackTrace?)? errorBuilder;
+  
+  /// Callback when the image is tapped
+  final VoidCallback? onTap;
 
   /// Creates a CustomNetworkImage.
   ///
@@ -60,6 +63,7 @@ class CustomNetworkImage extends StatefulWidget {
     this.isAntiAlias = false,
     this.loadingBuilder,
     this.errorBuilder,
+    this.onTap,
   }) : super(key: key);
 
   @override
@@ -79,6 +83,15 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> {
     
     // Register the view factory early if on web and likely to need it
     if (kIsWeb) {
+      // Register the tap callback if we have one
+      if (widget.onTap != null) {
+        setHtmlImageTapCallback(() {
+          if (widget.onTap != null) {
+            widget.onTap!();
+          }
+        });
+      }
+      
       registerHtmlImageFactory(_viewType, widget.url);
     }
     
@@ -114,14 +127,16 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> {
 
   @override
   Widget build(BuildContext context) {
+    // If we have a tap callback, wrap the image with a GestureDetector
+    Widget imageWidget;
+    
     // If we're on web and already know the image will fail, go straight to HTML
     if (kIsWeb && _loadError) {
-      return _buildHtmlImageView();
-    }
-
+      imageWidget = _buildHtmlImageView();
+    } 
     // If we haven't detected an error yet, try normal Flutter image
-    if (!_loadError) {
-      return Image.network(
+    else if (!_loadError) {
+      imageWidget = Image.network(
         widget.url,
         key: _key,
         width: widget.width,
@@ -174,8 +189,19 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> {
       );
     } else {
       // Non-web fallback
-      return _buildExtendedImageFallback();
+      imageWidget = _buildExtendedImageFallback();
     }
+    
+    // Wrap with GestureDetector only if we have an onTap and not using HTML fallback
+    // (HTML fallback has its own tap handling)
+    if (widget.onTap != null && !(kIsWeb && _loadError)) {
+      return GestureDetector(
+        onTap: widget.onTap,
+        child: imageWidget,
+      );
+    }
+    
+    return imageWidget;
   }
 
   Widget _buildHtmlImageView() {
@@ -199,7 +225,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> {
   }
 
   Widget _buildExtendedImageFallback() {
-    return ExtendedImage.network(
+    Widget image = ExtendedImage.network(
       widget.url,
       width: widget.width,
       height: widget.height,
@@ -259,5 +285,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> {
         }
       },
     );
+    
+    return image;
   }
 } 

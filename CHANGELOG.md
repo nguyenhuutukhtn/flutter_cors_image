@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+* Fixed: GestureDetector tap events now work correctly with problematic images using HTML fallback
+* Added: onTap callback property to CustomNetworkImage for easier tap handling
+* Improved: Visual feedback with cursor pointer on HTML fallback images
+
 ## 0.1.1
 
 * Updated intl dependency to support a wider range of versions (>=0.19.0 <0.21.0)

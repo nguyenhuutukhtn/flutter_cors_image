@@ -2,6 +2,14 @@ import 'dart:html' as html;
 // Import UI correctly for web
 import 'dart:ui_web' as ui_web;
 
+/// Global callback to communicate gesture events from HTML to Flutter
+Function? _htmlImageTapCallback;
+
+/// Sets the tap callback function that will be invoked when an HTML image is tapped
+void setHtmlImageTapCallback(Function callback) {
+  _htmlImageTapCallback = callback;
+}
+
 /// Registers an HTML view factory for displaying images
 /// This is used only on web platform
 void registerHtmlImageFactory(String viewId, String url) {
@@ -15,7 +23,16 @@ void registerHtmlImageFactory(String viewId, String url) {
         ..style.height = '100%'
         ..style.display = 'flex'
         ..style.alignItems = 'center'
-        ..style.justifyContent = 'center';
+        ..style.justifyContent = 'center'
+        ..style.cursor = 'pointer';  // Change cursor to pointer to indicate clickable
+        
+      // Add click event to the div
+      div.addEventListener('click', (event) {
+        // If a callback is registered, invoke it
+        if (_htmlImageTapCallback != null) {
+          _htmlImageTapCallback!();
+        }
+      });
         
       try {
         // First try direct image with CORS settings
