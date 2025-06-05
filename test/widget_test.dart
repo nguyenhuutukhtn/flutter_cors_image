@@ -1,4 +1,4 @@
-// This is a basic Flutter widget test.
+// This is a basic Flutter widget test for the flutter_cors_image package.
 //
 // To perform an interaction with a widget in your test, use the WidgetTester
 // utility in the flutter_test package. For example, you can send tap and scroll
@@ -6,25 +6,61 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_cors_image/main.dart';
+import 'package:flutter_cors_image/flutter_cors_image.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('CustomNetworkImage widget test', (WidgetTester tester) async {
+    // Build our CustomNetworkImage widget and trigger a frame.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomNetworkImage(
+            url: 'https://example.com/test-image.jpg',
+            width: 200,
+            height: 200,
+          ),
+        ),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that the CustomNetworkImage widget is rendered
+    expect(find.byType(CustomNetworkImage), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('CustomNetworkImage with new widget parameters', (WidgetTester tester) async {
+    // Test the new v0.2.0 widget-based error handling
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomNetworkImage(
+            url: 'https://example.com/test-image.jpg',
+            width: 200,
+            height: 200,
+            errorWidget: Row(
+              children: [
+                Icon(Icons.error),
+                Text('Custom Error'),
+              ],
+            ),
+            reloadWidget: Row(
+              children: [
+                Icon(Icons.refresh),
+                Text('Custom Reload'),
+              ],
+            ),
+            openUrlWidget: Row(
+              children: [
+                Icon(Icons.open_in_new),
+                Text('Custom Open'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that the CustomNetworkImage widget is rendered
+    expect(find.byType(CustomNetworkImage), findsOneWidget);
   });
 }

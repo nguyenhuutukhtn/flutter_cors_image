@@ -42,22 +42,41 @@ class CustomNetworkImage extends StatefulWidget {
   /// Optional unique ID if needed to handle multiple similar images
   final String? uniqueId;
 
-  /// Internationalization support for error handling
+  /// NEW v0.2.0: Widget-based error handling (RECOMMENDED)
+  /// Custom error widget to show when image fails to load
+  final Widget? errorWidget;
+  
+  /// Custom reload widget to show for retrying failed images
+  final Widget? reloadWidget;
+  
+  /// Custom open URL widget to show for opening image URL in new tab
+  final Widget? openUrlWidget;
+
+  /// Background color for the error widget. Defaults to grey if not specified.
+  final Color? errorBackgroundColor;
+  
+  /// DEPRECATED: Use errorWidget instead
   /// Custom error message text. If null, only icon will be shown.
+  @Deprecated('Use errorWidget parameter instead. This will be removed in v1.0.0')
   final String? errorText;
   
+  /// DEPRECATED: Use reloadWidget instead
   /// Custom reload button text. If null, only icon will be shown.
+  @Deprecated('Use reloadWidget parameter instead. This will be removed in v1.0.0')
   final String? reloadText;
   
+  /// DEPRECATED: Use openUrlWidget instead
   /// Custom open URL button text. If null, only icon will be shown.
+  @Deprecated('Use openUrlWidget parameter instead. This will be removed in v1.0.0')
   final String? openUrlText;
 
   /// Creates a CustomNetworkImage.
   ///
   /// The [url] parameter must not be null.
   /// 
-  /// For internationalization, provide [errorText], [reloadText], and [openUrlText].
-  /// If these are not provided, only icons will be shown in the error state.
+  /// For v0.2.0+, use [errorWidget], [reloadWidget], and [openUrlWidget] for error handling.
+  /// The [errorBackgroundColor] can be used to customize the background color of the error state.
+  /// The old text-based parameters are deprecated but still supported.
   const CustomNetworkImage({
     Key? key,
     required this.url,
@@ -85,10 +104,18 @@ class CustomNetworkImage extends StatefulWidget {
     this.onTap,
     this.transformationController,
     this.uniqueId,
-    // Internationalization parameters
+    // NEW widget-based parameters (v0.2.0+)
+    this.errorWidget,
+    this.reloadWidget,
+    this.openUrlWidget,
+    // DEPRECATED string parameters (for backward compatibility)
+    @Deprecated('Use errorWidget parameter instead. This will be removed in v1.0.0')
     this.errorText,
+    @Deprecated('Use reloadWidget parameter instead. This will be removed in v1.0.0')
     this.reloadText,
+    @Deprecated('Use openUrlWidget parameter instead. This will be removed in v1.0.0')
     this.openUrlText,
+    this.errorBackgroundColor,
   }) : super(key: key);
 
   @override
@@ -97,6 +124,8 @@ class CustomNetworkImage extends StatefulWidget {
 
 class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTickerProviderStateMixin {
   bool _loadError = false;
+  bool _htmlError = false; // NEW: Track when HTML also fails
+  bool _waitingForHtml = false; // Track when we're trying HTML
   final GlobalKey _key = GlobalKey();
   late final String _viewType;
   Matrix4? _lastTransformation;
@@ -127,12 +156,30 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         });
       }
       
+      // NEW: Register HTML error callback
+      setHtmlImageErrorCallback(_viewType, () {
+        print('HTML error callback triggered for $_viewType');
+        if (mounted) {
+          setState(() {
+            _htmlError = true;
+            _waitingForHtml = false;
+          });
+        }
+      });
+      
+      // NEW: Register HTML success callback
+      setHtmlImageSuccessCallback(_viewType, () {
+        print('HTML success callback triggered for $_viewType');
+        if (mounted) {
+          setState(() {
+            _waitingForHtml = false; // Hide loading overlay
+          });
+        }
+      });
+      
       registerHtmlImageFactory(
         _viewType, 
-        widget.url, 
-        errorText: widget.errorText,
-        reloadText: widget.reloadText,
-        openUrlText: widget.openUrlText,
+        widget.url,
       );
       
       // Add transformation listener if controller is provided
@@ -160,6 +207,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     if (needsViewUpdate && kIsWeb && _loadError) {
       // Clean up old references
       removeHtmlImageTapCallback(_viewType);
+      removeHtmlImageErrorCallback(_viewType);
+      removeHtmlImageSuccessCallback(_viewType);
       cleanupHtmlElement(_viewType);
       
       // Create new view type
@@ -174,13 +223,26 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         });
       }
       
-      registerHtmlImageFactory(
-        newViewType, 
-        widget.url, 
-        errorText: widget.errorText,
-        reloadText: widget.reloadText,
-        openUrlText: widget.openUrlText,
-      );
+      // Register new error callback
+      setHtmlImageErrorCallback(newViewType, () {
+        if (mounted) {
+          setState(() {
+            _htmlError = true;
+            _waitingForHtml = false;
+          });
+        }
+      });
+
+      // Register new success callback
+      setHtmlImageSuccessCallback(newViewType, () {
+        if (mounted) {
+          setState(() {
+            _waitingForHtml = false; // Hide loading overlay
+          });
+        }
+      });
+
+      registerHtmlImageFactory(newViewType, widget.url);
       
       // Update view type
       _viewType = newViewType;
@@ -226,6 +288,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     // Clean up HTML resources
     if (kIsWeb) {
       removeHtmlImageTapCallback(_viewType);
+      removeHtmlImageErrorCallback(_viewType);
+      removeHtmlImageSuccessCallback(_viewType);
       cleanupHtmlElement(_viewType);
     }
     
@@ -287,6 +351,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         if (mounted && !_loadError) {
           setState(() {
             _loadError = true;
+            _waitingForHtml = true; // We'll try HTML next
           });
           
           // Start animation controller for frequent updates
@@ -300,15 +365,24 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    // If we have a tap callback, wrap the image with a GestureDetector
+    print('Building CustomNetworkImage: _loadError=$_loadError, _htmlError=$_htmlError, _waitingForHtml=$_waitingForHtml');
+    
+    // NEW v0.2.0: If HTML also failed, show Flutter error UI
+    if (kIsWeb && _loadError && _htmlError) {
+      print('Showing Flutter error widget');
+      return _buildFlutterErrorWidget();
+    }
+    
     Widget imageWidget;
     
     // If we're on web and already know the image will fail, go straight to HTML
     if (kIsWeb && _loadError) {
+      print('Using HTML fallback');
       imageWidget = _buildHtmlImageView();
     } 
     // If we haven't detected an error yet, try normal Flutter image
     else if (!_loadError) {
+      print('Using Flutter Image.network');
       imageWidget = Image.network(
         widget.url,
         key: _key,
@@ -388,8 +462,27 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         ? SizedBox(
             width: widget.width,
             height: widget.height,
-            child: HtmlElementView(
-              viewType: _viewType,
+            child: Stack(
+              children: [
+                HtmlElementView(
+                  viewType: _viewType,
+                ),
+                // Show loading indicator while waiting for HTML to load/fail
+                if (_waitingForHtml)
+                  Container(
+                    color: Colors.grey[300],
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 8),
+                          Text('Loading fallback...'),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
           )
         : Container(
@@ -465,5 +558,163 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     );
     
     return image;
+  }
+
+  Widget _buildFlutterErrorWidget() {
+    // Helper function to create default widgets from deprecated string parameters
+    Widget _createDefaultErrorWidget() {
+      final errorMessage = widget.errorText?.isNotEmpty == true ? widget.errorText! : 'Image failed to load';
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.error, color: Colors.red),
+          if (widget.errorText?.isNotEmpty == true) ...[
+            SizedBox(width: 8),
+            Text(errorMessage),
+          ],
+        ],
+      );
+    }
+
+    Widget _createDefaultReloadWidget() {
+      final reloadMessage = widget.reloadText?.isNotEmpty == true ? widget.reloadText! : 'Reload';
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.refresh),
+          if (widget.reloadText?.isNotEmpty == true) ...[
+            SizedBox(width: 8),
+            Text(reloadMessage),
+          ],
+        ],
+      );
+    }
+
+    Widget _createDefaultOpenUrlWidget() {
+      final openUrlMessage = widget.openUrlText?.isNotEmpty == true ? widget.openUrlText! : 'Open in New Tab';
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.open_in_new),
+          if (widget.openUrlText?.isNotEmpty == true) ...[
+            SizedBox(width: 8),
+            Text(openUrlMessage),
+          ],
+        ],
+      );
+    }
+
+    // Determine which widgets to use (new widget parameters take precedence)
+    final errorWidget = widget.errorWidget ?? 
+        (widget.errorText != null ? _createDefaultErrorWidget() : 
+         Row(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             Icon(Icons.error, color: Colors.red),
+             SizedBox(width: 8),
+             Text('Image failed to load'),
+           ],
+         ));
+
+    final reloadWidget = widget.reloadWidget ?? 
+        (widget.reloadText != null ? _createDefaultReloadWidget() : 
+         Row(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             Icon(Icons.refresh),
+             SizedBox(width: 8),
+             Text('Reload'),
+           ],
+         ));
+
+    final openUrlWidget = widget.openUrlWidget ?? 
+        (widget.openUrlText != null ? _createDefaultOpenUrlWidget() : 
+         Row(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             Icon(Icons.open_in_new),
+             SizedBox(width: 8),
+             Text('Open in New Tab'),
+           ],
+         ));
+
+    return Container(
+      width: widget.width,
+      height: widget.height,
+      color: widget.errorBackgroundColor ?? Colors.grey[300],
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Error message widget
+              Flexible(
+                child: errorWidget,
+              ),
+              const SizedBox(height: 12),
+              // Action buttons in column to prevent overflow
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Reload button
+                  SizedBox(
+                    width: double.infinity,
+                    child: GestureDetector(
+                      onTap: () {
+                        // Reset error states and try reloading
+                        setState(() {
+                          _loadError = false;
+                          _htmlError = false;
+                          _waitingForHtml = false;
+                        });
+                        _preloadImage();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Center(child: reloadWidget),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Open URL button
+                  SizedBox(
+                    width: double.infinity,
+                    child: GestureDetector(
+                      onTap: () {
+                        // Open URL in new tab/window
+                        if (kIsWeb) {
+                          // For web, we can use dart:html
+                          try {
+                            // Import dart:html dynamically to avoid issues on non-web platforms
+                            // This will be handled by the conditional import
+                            openUrlInNewTab(widget.url);
+                          } catch (e) {
+                            print('Error opening URL: $e');
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Center(child: openUrlWidget),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 } 

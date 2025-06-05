@@ -15,7 +15,7 @@ This approach follows this strategy:
 2. If that fails on web platforms, automatically fall back to using an HTML img tag
 3. On native platforms, fall back to using `ExtendedImage` for additional compatibility
 
-**New in v0.1.7**: Enhanced error handling with reload and "open in new tab" buttons, plus full internationalization support.
+**New in v0.2.0**: Widget-based error handling with customizable error, reload, and open URL widgets. HTML errors now callback to Flutter for consistent UI across platforms.
 
 ### 2. ProxyNetworkImage (Recommended for CORS issues)
 
@@ -30,7 +30,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_cors_image: ^0.1.7
+  flutter_cors_image: ^0.2.0
 ```
 
 ## Usage
@@ -41,7 +41,7 @@ Import the package:
 import 'package:flutter_cors_image/flutter_cors_image.dart';
 ```
 
-### Using CustomNetworkImage:
+### Using CustomNetworkImage (v0.2.0+ Recommended):
 
 ```dart
 CustomNetworkImage(
@@ -49,10 +49,37 @@ CustomNetworkImage(
   width: 300,
   height: 200,
   fit: BoxFit.cover,
+  // NEW v0.2.0: Widget-based error handling
+  errorWidget: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.error, color: Colors.red),
+      SizedBox(width: 8),
+      Text('Image failed to load'),
+    ],
+  ),
+  reloadWidget: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.refresh),
+      SizedBox(width: 8),
+      Text('Reload Image'),
+    ],
+  ),
+  openUrlWidget: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.open_in_new),
+      SizedBox(width: 8),
+      Text('Open in New Tab'),
+    ],
+  ),
 )
 ```
 
-### Using CustomNetworkImage with Internationalization:
+### Using CustomNetworkImage with Backward Compatibility:
+
+⚠️ **Deprecated in v0.2.0** (still works but shows warnings):
 
 ```dart
 CustomNetworkImage(
@@ -60,25 +87,10 @@ CustomNetworkImage(
   width: 300,
   height: 200,
   fit: BoxFit.cover,
-  // Internationalization support
+  // DEPRECATED: Use widget parameters instead
   errorText: 'Imagen no disponible', // Spanish
   reloadText: 'Recargar imagen',
   openUrlText: 'Abrir en nueva pestaña',
-)
-```
-
-### Icon-only Error Display:
-
-For universal language support, you can omit the text parameters to show only icons:
-
-```dart
-CustomNetworkImage(
-  url: 'https://example.com/image.jpg',
-  width: 300,
-  height: 200,
-  fit: BoxFit.cover,
-  // No text parameters = icon-only mode
-  // Shows: ⚠️ (error), 🔄 (reload button), 🔗 (open URL button)
 )
 ```
 
@@ -110,49 +122,144 @@ ProxyNetworkImage(
 )
 ```
 
-## Internationalization Support
+## Widget-based Error Handling (v0.2.0+)
 
-The `CustomNetworkImage` widget now supports full internationalization for error handling:
+The `CustomNetworkImage` widget now supports flexible widget-based error handling:
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `errorText` | `String?` | Custom error message text. Shows "⚠️ [errorText]" or just "⚠️" if null |
-| `reloadText` | `String?` | Custom reload button text. Shows "🔄 [reloadText]" or just "🔄" if null |
-| `openUrlText` | `String?` | Custom "open in new tab" button text. Shows "🔗 [openUrlText]" or just "🔗" if null |
+| `errorWidget` | `Widget?` | Custom widget to show when image fails to load |
+| `reloadWidget` | `Widget?` | Custom widget for retry functionality |
+| `openUrlWidget` | `Widget?` | Custom widget for opening image URL in new tab |
 
-### Examples for Different Languages:
+### Examples for Different UI Styles:
 
 ```dart
-// English
+// Material Design Style
 CustomNetworkImage(
   url: imageUrl,
-  errorText: 'Image failed to load',  // Shows: ⚠️ Image failed to load
-  reloadText: 'Reload Image',         // Button: 🔄 Reload Image
-  openUrlText: 'Open in New Tab',     // Button: 🔗 Open in New Tab
+  errorWidget: Container(
+    padding: EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.red.shade50,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.error_outline, color: Colors.red),
+        SizedBox(width: 8),
+        Text('Failed to load image', style: TextStyle(color: Colors.red)),
+      ],
+    ),
+  ),
+  reloadWidget: ElevatedButton.icon(
+    onPressed: null, // Handled automatically
+    icon: Icon(Icons.refresh),
+    label: Text('Retry'),
+  ),
+  openUrlWidget: TextButton.icon(
+    onPressed: null, // Handled automatically
+    icon: Icon(Icons.open_in_new),
+    label: Text('Open URL'),
+  ),
 )
 
-// Spanish
+// Cupertino Style
 CustomNetworkImage(
   url: imageUrl,
-  errorText: 'Error al cargar imagen',      // Shows: ⚠️ Error al cargar imagen
-  reloadText: 'Recargar imagen',            // Button: 🔄 Recargar imagen
-  openUrlText: 'Abrir en nueva pestaña',    // Button: 🔗 Abrir en nueva pestaña
+  errorWidget: Container(
+    padding: EdgeInsets.all(8),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(CupertinoIcons.exclamationmark_triangle, color: CupertinoColors.systemRed),
+        SizedBox(height: 4),
+        Text('Image Error', style: TextStyle(fontSize: 12)),
+      ],
+    ),
+  ),
+  reloadWidget: CupertinoButton(
+    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(CupertinoIcons.refresh),
+        SizedBox(width: 4),
+        Text('Reload'),
+      ],
+    ),
+    onPressed: null, // Handled automatically
+  ),
 )
 
-// French
+// Icon-only (minimal)
 CustomNetworkImage(
   url: imageUrl,
-  errorText: 'Échec du chargement de l\'image',    // Shows: ⚠️ Échec du chargement de l'image
-  reloadText: 'Recharger l\'image',                // Button: 🔄 Recharger l'image
-  openUrlText: 'Ouvrir dans un nouvel onglet',     // Button: 🔗 Ouvrir dans un nouvel onglet
-)
-
-// Icon-only (universal)
-CustomNetworkImage(
-  url: imageUrl,
-  // No text parameters - shows only icons: ⚠️, 🔄, 🔗
+  errorWidget: Icon(Icons.broken_image, size: 48, color: Colors.grey),
+  reloadWidget: Icon(Icons.refresh, size: 24),
+  openUrlWidget: Icon(Icons.open_in_new, size: 24),
 )
 ```
+
+## Migration Guide v0.1.x → v0.2.0
+
+### Breaking Changes
+- HTML errors now callback to Flutter instead of showing HTML-based error UI
+- String-based error parameters are deprecated (but still work)
+
+### Migration Steps
+
+**Step 1**: Update your dependency
+```yaml
+dependencies:
+  flutter_cors_image: ^0.2.0
+```
+
+**Step 2**: Replace deprecated string parameters with widgets
+
+```dart
+// OLD (deprecated but still works)
+CustomNetworkImage(
+  url: imageUrl,
+  errorText: 'Image failed to load',
+  reloadText: 'Reload Image',
+  openUrlText: 'Open in New Tab',
+)
+
+// NEW (recommended)
+CustomNetworkImage(
+  url: imageUrl,
+  errorWidget: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.error, color: Colors.red),
+      SizedBox(width: 8),
+      Text('Image failed to load'),
+    ],
+  ),
+  reloadWidget: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.refresh),
+      SizedBox(width: 8),
+      Text('Reload Image'),
+    ],
+  ),
+  openUrlWidget: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.open_in_new),
+      SizedBox(width: 8),
+      Text('Open in New Tab'),
+    ],
+  ),
+)
+```
+
+**Step 3**: Test your app
+- Deprecated parameters will show warnings but continue to work
+- New widget parameters provide more flexibility and better integration
 
 ## Example
 
@@ -167,7 +274,7 @@ class ExampleScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Flutter CORS Image Example'),
+        title: Text('Flutter CORS Image v0.2.0 Example'),
       ),
       body: Center(
         child: Column(
@@ -183,15 +290,37 @@ class ExampleScreen extends StatelessWidget {
             
             SizedBox(height: 20),
             
-            // CustomNetworkImage with internationalization
-            Text('CustomNetworkImage with i18n'),
+            // CustomNetworkImage with new widget-based error handling
+            Text('CustomNetworkImage v0.2.0'),
             CustomNetworkImage(
               url: 'https://example.com/image-with-cors-issues.jpg',
               width: 300,
               height: 200,
-              errorText: 'Image failed to load',
-              reloadText: 'Retry',
-              openUrlText: 'Open Image',
+              errorWidget: Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Custom Error Widget'),
+                  ],
+                ),
+              ),
+              reloadWidget: ElevatedButton.icon(
+                onPressed: null,
+                icon: Icon(Icons.refresh),
+                label: Text('Custom Reload'),
+              ),
+              openUrlWidget: TextButton.icon(
+                onPressed: null,
+                icon: Icon(Icons.open_in_new),
+                label: Text('Custom Open'),
+              ),
             ),
           ],
         ),
