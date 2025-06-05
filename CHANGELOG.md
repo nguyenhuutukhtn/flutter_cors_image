@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.2.1 - Bug Fix Release
+
+### 🐛 Bug Fixes
+* **Alternative to Buggy Flutter loadingBuilder**: Implemented custom loading state management to replace Flutter's problematic `loadingBuilder`
+  * Replaced `loadingBuilder` parameter with `customLoadingBuilder` that uses `CustomImageProgress`
+  * Added reliable progress tracking via `ImageStream` and `ImageStreamListener`
+  * Fixed memory leaks and inconsistent progress reporting issues
+  * Added proper resource cleanup with `_cleanupImageStream()` method
+
+### 🚀 New Features
+* **Custom Loading Progress Tracking**: New `CustomImageProgress` class provides reliable loading progress information
+* **Enhanced Loading State Management**: Added `ImageLoadingState` enum for better loading state control
+* **Improved Resource Management**: Automatic cleanup of image streams and listeners to prevent memory leaks
+
+### 🔄 Migration Guide
+```dart
+// OLD (buggy Flutter loadingBuilder)
+CustomNetworkImage(
+  url: imageUrl,
+  loadingBuilder: (context, child, loadingProgress) {
+    if (loadingProgress == null) return child;
+    return CircularProgressIndicator(
+      value: loadingProgress.cumulativeBytesLoaded / 
+             loadingProgress.expectedTotalBytes!,
+    );
+  },
+)
+
+// NEW (reliable customLoadingBuilder)
+CustomNetworkImage(
+  url: imageUrl,
+  customLoadingBuilder: (context, child, progress) {
+    if (progress == null) return child;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircularProgressIndicator(value: progress.progress),
+        if (progress.progress != null)
+          Text('${(progress.progress! * 100).toInt()}%'),
+      ],
+    );
+  },
+)
+```
+
+### 🛠️ Technical Changes
+* Manual image loading progress tracking via `onChunk` callback
+* Proper state management for loading, loaded, and failed states
+* Enhanced error handling integration with existing fallback mechanisms
+* Backward compatibility maintained for existing error handling features
+
 ## 0.2.0 - BREAKING CHANGES
 
 ### 🚀 New Features
