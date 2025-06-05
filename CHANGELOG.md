@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.8
+* Fixed: Resolved issue where error placeholder was not being displayed correctly
+* Fixed: Resolved issue where error placeholder was not being displayed correctly
 ## 0.1.7
 * Added: Internationalization support for error handling - supports custom text for error messages and buttons
 * Enhanced: Error placeholder now includes reload and "open in new tab" functionality when HTML image loading fails
