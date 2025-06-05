@@ -549,7 +549,9 @@ class ImageDemoScreen extends StatelessWidget {
   const ImageDemoScreen({super.key});
 
   // Error image that needs HTML fallback
-  static const String errorImageUrl = 'https://cdn-cs-prod.s3.ap-southeast-1.amazonaws.com/20250422/image/57ae968a8a876c76aa04a406f6869cdb';
+  // static const String errorImageUrl = 'https://cdn-cs-prod.s3.ap-southeast-1.amazonaws.com/20250422/image/57ae968a8a876c76aa04a406f6869cdb';
+  static const String errorImageUrl = 'https://cdn-cs-prod.s3.ap-southeast-1.amazonaws.com/20250422/image/57ae968a8a876c76aa04a406f68db';
+
   
   // Normal image that should load normally
   static const String normalImageUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Example_image.svg/600px-Example_image.svg.png';

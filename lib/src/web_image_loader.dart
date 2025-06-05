@@ -34,7 +34,17 @@ void updateHtmlImageTransform(String viewId, Matrix4 matrix) {
 
 /// Registers an HTML view factory for displaying images
 /// This is used only on web platform
-void registerHtmlImageFactory(String viewId, String url) {
+/// 
+/// [errorText] - Custom error message text. If null, only icon will be shown.
+/// [reloadText] - Custom reload button text. If null, only icon will be shown.
+/// [openUrlText] - Custom open URL button text. If null, only icon will be shown.
+void registerHtmlImageFactory(
+  String viewId, 
+  String url, {
+  String? errorText,
+  String? reloadText,
+  String? openUrlText,
+}) {
   // Register a web platform view factory
   ui_web.platformViewRegistry.registerViewFactory(
     viewId,
@@ -98,7 +108,7 @@ void registerHtmlImageFactory(String viewId, String url) {
             // Handle error in the last resort approach
             directImgElement.onError.listen((_) {
               directImgElement.remove();
-              _showErrorPlaceholder(div);
+              _showErrorPlaceholder(div, url, viewId, errorText: errorText, reloadText: reloadText, openUrlText: openUrlText);
             });
             
             div.append(directImgElement);
@@ -107,7 +117,7 @@ void registerHtmlImageFactory(String viewId, String url) {
         div.append(imgElement);
       } catch (e) {
         print('Error creating HTML image element: $e');
-        _showErrorPlaceholder(div);
+        _showErrorPlaceholder(div, url, viewId, errorText: errorText, reloadText: reloadText, openUrlText: openUrlText);
       }
       
       return div;
@@ -126,7 +136,18 @@ void cleanupHtmlElement(String viewId) {
 }
 
 /// Show an error placeholder when all image loading attempts fail
-void _showErrorPlaceholder(html.Element container) {
+/// 
+/// [errorText] - Custom error message text. If null, only icon will be shown.
+/// [reloadText] - Custom reload button text. If null, only icon will be shown.
+/// [openUrlText] - Custom open URL button text. If null, only icon will be shown.
+void _showErrorPlaceholder(
+  html.Element container, 
+  String url, 
+  String viewId, {
+  String? errorText,
+  String? reloadText,
+  String? openUrlText,
+}) {
   // Clear container
   container.children.clear();
   
@@ -138,23 +159,171 @@ void _showErrorPlaceholder(html.Element container) {
     ..style.justifyContent = 'center'
     ..style.width = '100%'
     ..style.height = '100%'
-    ..style.backgroundColor = '#f0f0f0';
+    ..style.backgroundColor = '#f0f0f0'
+    ..style.padding = '16px'
+    ..style.boxSizing = 'border-box';
     
-  // Error icon
+  // Error icon with optional text
+  final errorMessage = errorText?.isNotEmpty == true ? '⚠️ $errorText' : '⚠️';
   final iconDiv = html.DivElement()
-    ..style.fontSize = '36px'
+    ..style.fontSize = '24px'
     ..style.color = '#d32f2f'
-    ..style.marginBottom = '8px'
-    ..innerText = '⚠️';
-    
-  // Error text
-  final textDiv = html.DivElement()
-    ..style.color = '#444'
+    ..style.marginBottom = '16px'
     ..style.textAlign = 'center'
-    ..style.padding = '0 8px'
-    ..innerText = 'Image failed to load';
-    
+    ..innerText = errorMessage;
+  
+  // Buttons container
+  final buttonsContainer = html.DivElement()
+    ..style.display = 'flex'
+    ..style.flexDirection = 'column'
+    ..style.gap = '8px'
+    ..style.alignItems = 'center';
+  
+  // Reload button with icon + text
+  final reloadButtonText = reloadText?.isNotEmpty == true ? '🔄 $reloadText' : '🔄';
+  final reloadButton = html.ButtonElement()
+    ..innerText = reloadButtonText
+    ..style.padding = '8px 16px'
+    ..style.backgroundColor = '#1976d2'
+    ..style.color = 'white'
+    ..style.border = 'none'
+    ..style.borderRadius = '4px'
+    ..style.cursor = 'pointer'
+    ..style.fontSize = '14px'
+    ..style.fontFamily = 'system-ui, -apple-system, sans-serif';
+  
+  // Open URL button with icon + text
+  final openUrlButtonText = openUrlText?.isNotEmpty == true ? '🔗 $openUrlText' : '🔗';
+  final openUrlButton = html.ButtonElement()
+    ..innerText = openUrlButtonText
+    ..style.padding = '8px 16px'
+    ..style.backgroundColor = '#388e3c'
+    ..style.color = 'white'
+    ..style.border = 'none'
+    ..style.borderRadius = '4px'
+    ..style.cursor = 'pointer'
+    ..style.fontSize = '14px'
+    ..style.fontFamily = 'system-ui, -apple-system, sans-serif';
+  
+  // Add hover effects
+  reloadButton.onMouseEnter.listen((_) {
+    reloadButton.style.backgroundColor = '#1565c0';
+  });
+  reloadButton.onMouseLeave.listen((_) {
+    reloadButton.style.backgroundColor = '#1976d2';
+  });
+  
+  openUrlButton.onMouseEnter.listen((_) {
+    openUrlButton.style.backgroundColor = '#2e7d32';
+  });
+  openUrlButton.onMouseLeave.listen((_) {
+    openUrlButton.style.backgroundColor = '#388e3c';
+  });
+  
+  // Add click handlers
+  reloadButton.onClick.listen((event) {
+    event.stopPropagation();
+    event.preventDefault();
+    _reloadImage(container, url, viewId, errorText: errorText, reloadText: reloadText, openUrlText: openUrlText);
+  });
+  
+  openUrlButton.onClick.listen((event) {
+    event.stopPropagation();
+    event.preventDefault();
+    html.window.open(url, '_blank');
+  });
+  
+  // Assemble the error UI
+  buttonsContainer.append(reloadButton);
+  buttonsContainer.append(openUrlButton);
+  
   errorDiv.append(iconDiv);
-  errorDiv.append(textDiv);
+  errorDiv.append(buttonsContainer);
   container.append(errorDiv);
+}
+
+/// Reload the image by re-creating the image elements
+void _reloadImage(
+  html.Element container, 
+  String url, 
+  String viewId, {
+  String? errorText,
+  String? reloadText,
+  String? openUrlText,
+}) {
+  // Clear container
+  container.children.clear();
+  
+  // Show loading indicator
+  final loadingDiv = html.DivElement()
+    ..style.display = 'flex'
+    ..style.alignItems = 'center'
+    ..style.justifyContent = 'center'
+    ..style.width = '100%'
+    ..style.height = '100%'
+    ..style.backgroundColor = '#f0f0f0'
+    ..innerText = '🔄'
+    ..style.color = '#666'
+    ..style.fontSize = '24px';
+  
+  container.append(loadingDiv);
+  
+  // Try loading the image again
+  try {
+    // First try direct image with CORS settings
+    final imgElement = html.ImageElement()
+      ..src = url
+      ..crossOrigin = 'anonymous'  // Try with CORS
+      ..style.objectFit = 'contain'
+      ..style.width = '100%'
+      ..style.height = '100%'
+      ..style.maxWidth = '100%'
+      ..style.maxHeight = '100%'
+      ..style.pointerEvents = 'none';
+      
+    // Add error handler to show fallback UI
+    imgElement.onError.listen((event) {
+      print('HTML image reload error, trying direct embed...');
+      
+      // If CORS fails, remove the crossOrigin attribute and try again
+      imgElement.remove();
+      
+      // Create img without CORS attribute as last resort
+      final directImgElement = html.ImageElement()
+        ..src = url
+        ..style.objectFit = 'contain'
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.maxWidth = '100%'
+        ..style.maxHeight = '100%'
+        ..style.pointerEvents = 'none';
+        
+        // Handle error in the last resort approach
+        directImgElement.onError.listen((_) {
+          directImgElement.remove();
+          _showErrorPlaceholder(container, url, viewId, errorText: errorText, reloadText: reloadText, openUrlText: openUrlText);
+        });
+        
+        // On successful load, replace loading with image
+        directImgElement.onLoad.listen((_) {
+          container.children.clear();
+          container.append(directImgElement);
+        });
+        
+        container.children.clear();
+        container.append(directImgElement);
+    });
+    
+    // On successful load, replace loading with image
+    imgElement.onLoad.listen((_) {
+      container.children.clear();
+      container.append(imgElement);
+    });
+    
+    container.children.clear();
+    container.append(imgElement);
+  } catch (e) {
+    print('Error reloading HTML image element: $e');
+    _showErrorPlaceholder(container, url, viewId, errorText: errorText, reloadText: reloadText, openUrlText: openUrlText);
+  }
 } 

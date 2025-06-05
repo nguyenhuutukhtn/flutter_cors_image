@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.7
+* Added: Internationalization support for error handling - supports custom text for error messages and buttons
+* Enhanced: Error placeholder now includes reload and "open in new tab" functionality when HTML image loading fails
+* Added: `errorText`, `reloadText`, and `openUrlText` parameters to CustomNetworkImage for multilingual support
+* Improved: Error UI can show only icons when no text is provided (icon-only mode for universal understanding)
+* Added: Reload button to retry failed images without page refresh
+* Added: "Open in new tab" button to view the problematic image URL directly
+
 ## 0.1.6
 * Fixed: Resolved tap event conflicts in ListViews with mixed HTML fallback and normal images
 * Update README.md

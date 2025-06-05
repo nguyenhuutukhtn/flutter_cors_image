@@ -42,9 +42,22 @@ class CustomNetworkImage extends StatefulWidget {
   /// Optional unique ID if needed to handle multiple similar images
   final String? uniqueId;
 
+  /// Internationalization support for error handling
+  /// Custom error message text. If null, only icon will be shown.
+  final String? errorText;
+  
+  /// Custom reload button text. If null, only icon will be shown.
+  final String? reloadText;
+  
+  /// Custom open URL button text. If null, only icon will be shown.
+  final String? openUrlText;
+
   /// Creates a CustomNetworkImage.
   ///
   /// The [url] parameter must not be null.
+  /// 
+  /// For internationalization, provide [errorText], [reloadText], and [openUrlText].
+  /// If these are not provided, only icons will be shown in the error state.
   const CustomNetworkImage({
     Key? key,
     required this.url,
@@ -72,6 +85,10 @@ class CustomNetworkImage extends StatefulWidget {
     this.onTap,
     this.transformationController,
     this.uniqueId,
+    // Internationalization parameters
+    this.errorText,
+    this.reloadText,
+    this.openUrlText,
   }) : super(key: key);
 
   @override
@@ -110,7 +127,13 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         });
       }
       
-      registerHtmlImageFactory(_viewType, widget.url);
+      registerHtmlImageFactory(
+        _viewType, 
+        widget.url, 
+        errorText: widget.errorText,
+        reloadText: widget.reloadText,
+        openUrlText: widget.openUrlText,
+      );
       
       // Add transformation listener if controller is provided
       if (widget.transformationController != null) {
@@ -151,7 +174,13 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         });
       }
       
-      registerHtmlImageFactory(newViewType, widget.url);
+      registerHtmlImageFactory(
+        newViewType, 
+        widget.url, 
+        errorText: widget.errorText,
+        reloadText: widget.reloadText,
+        openUrlText: widget.openUrlText,
+      );
       
       // Update view type
       _viewType = newViewType;
