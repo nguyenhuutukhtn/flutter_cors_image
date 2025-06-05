@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9
+* Fixed: Resolved issue where error placeholder was not being displayed correctly
+* Fixed: Resolved issue where error placeholder was not being displayed correctly
+
 ## 0.1.8
 * Fixed: Resolved issue where error placeholder was not being displayed correctly
 * Fixed: Resolved issue where error placeholder was not being displayed correctly
