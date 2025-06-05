@@ -6,9 +6,9 @@ A Flutter package that provides image loading solutions for handling CORS issues
 
 ## Features
 
-This package offers two different approaches to solve image loading issues:
+This package provides a solution to solve image loading issues:
 
-### 1. CustomNetworkImage
+### CustomNetworkImage
 
 This approach follows this strategy:
 1. First, try to load the image using Flutter's normal `Image.network` widget
@@ -16,13 +16,6 @@ This approach follows this strategy:
 3. On native platforms, fall back to using `ExtendedImage` for additional compatibility
 
 **New in v0.2.0**: Widget-based error handling with customizable error, reload, and open URL widgets. HTML errors now callback to Flutter for consistent UI across platforms.
-
-### 2. ProxyNetworkImage (Recommended for CORS issues)
-
-This is a more robust solution that:
-1. Uses an iframe to load the image directly, completely bypassing CORS restrictions
-2. Works reliably with images that have unusual formats or server configurations
-3. Falls back to a standard Image.network on non-web platforms
 
 ## Installation
 
@@ -94,21 +87,10 @@ CustomNetworkImage(
 )
 ```
 
-### Using ProxyNetworkImage (Recommended for CORS issues):
+The widget supports all standard parameters from Image.network:
 
 ```dart
-ProxyNetworkImage(
-  url: 'https://example.com/image-with-cors-issues.jpg',
-  width: 300,
-  height: 200,
-  fit: BoxFit.cover,
-)
-```
-
-Both widgets support all standard parameters from Image.network:
-
-```dart
-ProxyNetworkImage(
+CustomNetworkImage(
   url: 'https://example.com/image.jpg',
   width: 300,
   height: 200,
@@ -263,7 +245,7 @@ CustomNetworkImage(
 
 ## Example
 
-Here's an example comparing both approaches:
+Here's an example using CustomNetworkImage:
 
 ```dart
 import 'package:flutter/material.dart';
@@ -280,16 +262,6 @@ class ExampleScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // ProxyNetworkImage (recommended)
-            Text('ProxyNetworkImage (Recommended)'),
-            ProxyNetworkImage(
-              url: 'https://example.com/image-with-cors-issues.jpg',
-              width: 300,
-              height: 200,
-            ),
-            
-            SizedBox(height: 20),
-            
             // CustomNetworkImage with new widget-based error handling
             Text('CustomNetworkImage v0.2.0'),
             CustomNetworkImage(
@@ -329,13 +301,6 @@ class ExampleScreen extends StatelessWidget {
   }
 }
 ```
-
-## Real-world Example
-
-The ProxyNetworkImage works with images like:
-- `https://example.com/image-with-cors-issues.jpg`
-
-Which typically fails with standard Flutter Image.network due to CORS restrictions.
 
 ## License
 

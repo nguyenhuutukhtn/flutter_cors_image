@@ -406,7 +406,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         filterQuality: widget.filterQuality,
         isAntiAlias: widget.isAntiAlias,
         loadingBuilder: widget.loadingBuilder ?? (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
+          if (loadingProgress == null || loadingProgress.expectedTotalBytes == null) return child;
           return Center(
             child: CircularProgressIndicator(
               value: loadingProgress.expectedTotalBytes != null

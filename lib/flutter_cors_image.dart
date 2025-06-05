@@ -4,5 +4,4 @@
 /// and problematic images on web platforms.
 library flutter_cors_image;
 
-export 'src/custom_network_image.dart';
-export 'src/proxy_network_image_export.dart'; 
+export 'src/custom_network_image.dart'; 

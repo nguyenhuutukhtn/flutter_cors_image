@@ -43,35 +43,7 @@ class ExampleScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Section 1: ProxyNetworkImage (recommended)
-            const Text(
-              'ProxyNetworkImage (Recommended)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Bypasses CORS using an iframe:',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const ProxyNetworkImage(
-                  url: problematicImageUrl,
-                  width: 300,
-                  height: 200,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 32),
-            
-            // Section 2: NEW v0.2.0 - CustomNetworkImage with Widget-based Error Handling
+            // Section 1: NEW v0.2.0 - CustomNetworkImage with Widget-based Error Handling
             const Text(
               'NEW v0.2.0: CustomNetworkImage with Widget-based Error Handling',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -164,7 +136,7 @@ class ExampleScreen extends StatelessWidget {
             
             const SizedBox(height: 32),
             
-            // Section 3: Backward Compatibility - Deprecated String Parameters
+            // Section 2: Backward Compatibility - Deprecated String Parameters
             const Text(
               'Backward Compatibility: Deprecated String Parameters',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -192,15 +164,20 @@ class ExampleScreen extends StatelessWidget {
                   errorText: 'Legacy Error Text',
                   reloadText: 'Legacy Reload',
                   openUrlText: 'Legacy Open URL',
+                  loadingBuilder: (context, child, event) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  },
                 ),
               ),
             ),
             
             const SizedBox(height: 32),
             
-            // Section 4: Regular Image for comparison
+            // Section 3: Regular Image for comparison
             const Text(
-              'Regular Image (using ProxyNetworkImage)',
+              'Regular Image (using CustomNetworkImage)',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -215,18 +192,28 @@ class ExampleScreen extends StatelessWidget {
                   border: Border.all(color: Colors.grey),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const ProxyNetworkImage(
+                child: CustomNetworkImage(
                   url: regularImageUrl,
                   width: 300,
                   height: 200,
                   fit: BoxFit.contain,
+                  loadingBuilder: (context, child, event) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Center(
+                      child: Text('Error loading image'),
+                    );
+                  },
                 ),
               ),
             ),
             
             const SizedBox(height: 32),
             
-            // Section 5: Migration Guide
+            // Section 4: Migration Guide
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
