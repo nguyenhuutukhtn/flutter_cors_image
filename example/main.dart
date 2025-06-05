@@ -154,7 +154,8 @@ class ExampleScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: CustomNetworkImage(
-                  url: problematicImageUrl,
+                  // url: problematicImageUrl,
+                  url: 'https://example.com/image-with-cors-issues.jpg',
                   width: 300,
                   height: 200,
                   fit: BoxFit.cover,
@@ -164,7 +165,7 @@ class ExampleScreen extends StatelessWidget {
                   errorText: 'Legacy Error Text',
                   reloadText: 'Legacy Reload',
                   openUrlText: 'Legacy Open URL',
-                  loadingBuilder: (context, child, event) {
+                  customLoadingBuilder: (context, child, event) {
                     return const Center(
                       child: CircularProgressIndicator(),
                     );
@@ -197,7 +198,7 @@ class ExampleScreen extends StatelessWidget {
                   width: 300,
                   height: 200,
                   fit: BoxFit.contain,
-                  loadingBuilder: (context, child, event) {
+                  customLoadingBuilder: (context, child, event) {
                     return const Center(
                       child: CircularProgressIndicator(),
                     );

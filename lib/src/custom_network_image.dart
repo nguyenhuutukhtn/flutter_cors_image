@@ -3,6 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:extended_image/extended_image.dart';
 import 'web_image_loader.dart' if (dart.library.io) 'stub_image_loader.dart';
 
+/// Custom loading state for tracking image loading progress
+enum ImageLoadingState {
+  initial,
+  loading,
+  loaded,
+  failed,
+}
+
+/// Custom loading progress information
+class CustomImageProgress {
+  final int cumulativeBytesLoaded;
+  final int? expectedTotalBytes;
+  final double? progress;
+
+  const CustomImageProgress({
+    required this.cumulativeBytesLoaded,
+    this.expectedTotalBytes,
+    this.progress,
+  });
+}
+
 /// A network image widget that handles problematic images by falling back to HTML img tag
 /// when the standard Flutter image loader fails.
 ///
@@ -30,7 +51,11 @@ class CustomNetworkImage extends StatefulWidget {
   final bool gaplessPlayback;
   final FilterQuality filterQuality;
   final bool isAntiAlias;
-  final Widget Function(BuildContext, Widget, ImageChunkEvent?)? loadingBuilder;
+  
+  /// CUSTOM ALTERNATIVE: Replacement for buggy Flutter loadingBuilder
+  /// Custom loading builder that receives our reliable loading progress
+  final Widget Function(BuildContext, Widget, CustomImageProgress?)? customLoadingBuilder;
+  
   final Widget Function(BuildContext, Object, StackTrace?)? errorBuilder;
   
   /// Callback when the image is tapped
@@ -77,6 +102,8 @@ class CustomNetworkImage extends StatefulWidget {
   /// For v0.2.0+, use [errorWidget], [reloadWidget], and [openUrlWidget] for error handling.
   /// The [errorBackgroundColor] can be used to customize the background color of the error state.
   /// The old text-based parameters are deprecated but still supported.
+  /// 
+  /// Use [customLoadingBuilder] instead of loadingBuilder for reliable loading progress tracking.
   const CustomNetworkImage({
     Key? key,
     required this.url,
@@ -99,7 +126,7 @@ class CustomNetworkImage extends StatefulWidget {
     this.gaplessPlayback = false,
     this.filterQuality = FilterQuality.low,
     this.isAntiAlias = false,
-    this.loadingBuilder,
+    this.customLoadingBuilder, // REPLACEMENT for buggy loadingBuilder
     this.errorBuilder,
     this.onTap,
     this.transformationController,
@@ -131,6 +158,12 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   Matrix4? _lastTransformation;
   // Animation controller for smoother transformation updates
   late AnimationController _transformSyncController;
+  
+  // CUSTOM LOADING STATE MANAGEMENT (Alternative to buggy Flutter loadingBuilder)
+  ImageLoadingState _loadingState = ImageLoadingState.initial;
+  CustomImageProgress? _loadingProgress;
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageStreamListener;
   
   @override
   void initState() {
@@ -281,6 +314,11 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         removeHtmlImageTapCallback(_viewType);
       }
     }
+    
+    // If URL changed, reload the image
+    if (oldWidget.url != widget.url) {
+      _preloadImage();
+    }
   }
   
   @override
@@ -298,10 +336,22 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       widget.transformationController!.removeListener(_handleTransformationChange);
     }
     
+    // Clean up image stream listener
+    _cleanupImageStream();
+    
     // Dispose animation controller
     _transformSyncController.dispose();
     
     super.dispose();
+  }
+  
+  // Clean up image stream resources
+  void _cleanupImageStream() {
+    if (_imageStream != null && _imageStreamListener != null) {
+      _imageStream!.removeListener(_imageStreamListener!);
+      _imageStream = null;
+      _imageStreamListener = null;
+    }
   }
   
   // Continuously check for transformation changes for smoother updates
@@ -327,15 +377,31 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   }
 
   void _preloadImage() {
-    // Preload the image to detect errors before build
-    final imageProvider = NetworkImage(widget.url);
-    final imageStream = imageProvider.resolve(ImageConfiguration.empty);
+    // Clean up any existing stream
+    _cleanupImageStream();
     
-    imageStream.addListener(ImageStreamListener(
+    // Reset loading state
+    setState(() {
+      _loadingState = ImageLoadingState.loading;
+      _loadingProgress = const CustomImageProgress(cumulativeBytesLoaded: 0);
+      _loadError = false;
+      _htmlError = false;
+      _waitingForHtml = false;
+    });
+    
+    // Create image provider and stream
+    final imageProvider = NetworkImage(widget.url, headers: widget.headers);
+    _imageStream = imageProvider.resolve(ImageConfiguration.empty);
+    
+    // Create our custom listener that tracks progress more reliably
+    _imageStreamListener = ImageStreamListener(
       (ImageInfo info, bool synchronousCall) {
         // Image loaded successfully
-        if (mounted && _loadError) {
+        print('Image loaded successfully');
+        if (mounted) {
           setState(() {
+            _loadingState = ImageLoadingState.loaded;
+            _loadingProgress = null;
             _loadError = false;
           });
           
@@ -348,8 +414,10 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       onError: (dynamic error, StackTrace? stackTrace) {
         // Image failed to load
         print('Error pre-loading image: $error');
-        if (mounted && !_loadError) {
+        if (mounted) {
           setState(() {
+            _loadingState = ImageLoadingState.failed;
+            _loadingProgress = null;
             _loadError = true;
             _waitingForHtml = true; // We'll try HTML next
           });
@@ -360,12 +428,31 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
           }
         }
       },
-    ));
+      onChunk: (ImageChunkEvent event) {
+        // Update loading progress - this is our reliable alternative to buggy loadingBuilder
+        if (mounted) {
+          final progress = event.expectedTotalBytes != null 
+              ? event.cumulativeBytesLoaded / event.expectedTotalBytes! 
+              : null;
+          
+          setState(() {
+            _loadingProgress = CustomImageProgress(
+              cumulativeBytesLoaded: event.cumulativeBytesLoaded,
+              expectedTotalBytes: event.expectedTotalBytes,
+              progress: progress,
+            );
+          });
+        }
+      },
+    );
+    
+    // Add the listener to the stream
+    _imageStream!.addListener(_imageStreamListener!);
   }
 
   @override
   Widget build(BuildContext context) {
-    print('Building CustomNetworkImage: _loadError=$_loadError, _htmlError=$_htmlError, _waitingForHtml=$_waitingForHtml');
+    print('Building CustomNetworkImage: _loadError=$_loadError, _htmlError=$_htmlError, _waitingForHtml=$_waitingForHtml, _loadingState=$_loadingState');
     
     // NEW v0.2.0: If HTML also failed, show Flutter error UI
     if (kIsWeb && _loadError && _htmlError) {
@@ -380,6 +467,11 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       print('Using HTML fallback');
       imageWidget = _buildHtmlImageView();
     } 
+    // If we're still loading and have a custom loading builder, show loading state
+    else if (_loadingState == ImageLoadingState.loading && widget.customLoadingBuilder != null) {
+      print('Showing custom loading state');
+      imageWidget = _buildCustomLoadingWidget();
+    }
     // If we haven't detected an error yet, try normal Flutter image
     else if (!_loadError) {
       print('Using Flutter Image.network');
@@ -405,17 +497,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         gaplessPlayback: widget.gaplessPlayback,
         filterQuality: widget.filterQuality,
         isAntiAlias: widget.isAntiAlias,
-        loadingBuilder: widget.loadingBuilder ?? (context, child, loadingProgress) {
-          if (loadingProgress == null || loadingProgress.expectedTotalBytes == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / 
-                    loadingProgress.expectedTotalBytes!
-                  : null,
-            ),
-          );
-        },
         errorBuilder: (context, error, stackTrace) {
           print('Error loading image with Flutter: $error');
           
@@ -449,6 +530,23 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     }
     
     return imageWidget;
+  }
+
+  // CUSTOM LOADING WIDGET - Alternative to buggy Flutter loadingBuilder
+  Widget _buildCustomLoadingWidget() {
+    // Create a placeholder for the image dimensions
+    final placeholder = Container(
+      width: widget.width,
+      height: widget.height,
+      color: Colors.transparent,
+    );
+    
+    // Use the custom loading builder
+    return widget.customLoadingBuilder!(
+      context, 
+      placeholder, 
+      _loadingProgress
+    );
   }
 
   Widget _buildHtmlImageView() {
@@ -520,11 +618,18 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       loadStateChanged: (ExtendedImageState state) {
         switch (state.extendedImageLoadState) {
           case LoadState.loading:
-            if (widget.loadingBuilder != null) {
-              return widget.loadingBuilder!(
+            // Use our custom loading builder if available
+            if (widget.customLoadingBuilder != null) {
+              // Create synthetic progress for ExtendedImage
+              final syntheticProgress = CustomImageProgress(
+                cumulativeBytesLoaded: 0,
+                expectedTotalBytes: null,
+                progress: null,
+              );
+              return widget.customLoadingBuilder!(
                 context, 
                 Container(), 
-                const ImageChunkEvent(cumulativeBytesLoaded: 0, expectedTotalBytes: null)
+                syntheticProgress
               );
             }
             return Center(
