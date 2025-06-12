@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:extended_image/extended_image.dart';
 import 'web_image_loader.dart' if (dart.library.io) 'stub_image_loader.dart';
+import 'image_clipboard_helper.dart';
 
 /// Custom loading state for tracking image loading progress
 enum ImageLoadingState {
@@ -9,6 +13,23 @@ enum ImageLoadingState {
   loading,
   loaded,
   failed,
+}
+
+/// Position for hover icons
+enum HoverIconPosition {
+  topLeft,
+  topRight,
+  bottomLeft,
+  bottomRight,
+  topCenter,
+  bottomCenter,
+}
+
+/// Layout direction for hover icons
+enum HoverIconLayout {
+  auto,    // Automatic based on position (vertical for corners, horizontal for center)
+  row,     // Always horizontal
+  column,  // Always vertical
 }
 
 /// Custom loading progress information
@@ -21,6 +42,21 @@ class CustomImageProgress {
     required this.cumulativeBytesLoaded,
     this.expectedTotalBytes,
     this.progress,
+  });
+}
+
+/// Image data callback information
+class ImageDataInfo {
+  final Uint8List imageBytes;
+  final int width;
+  final int height;
+  final String url;
+
+  const ImageDataInfo({
+    required this.imageBytes,
+    required this.width,
+    required this.height,
+    required this.url,
   });
 }
 
@@ -67,6 +103,38 @@ class CustomNetworkImage extends StatefulWidget {
   /// Optional unique ID if needed to handle multiple similar images
   final String? uniqueId;
 
+  /// NEW: Callback when image loads successfully with image data for copy functionality
+  /// This provides the raw image bytes and metadata that can be used for copying
+  final void Function(ImageDataInfo imageData)? onImageLoaded;
+
+  /// NEW: Hover icons for quick actions (primarily for web)
+  /// Custom download icon widget that appears on hover
+  final Widget? downloadIcon;
+  
+  /// Custom copy icon widget that appears on hover  
+  final Widget? copyIcon;
+  
+  /// Position of the hover icons (default: topRight)
+  final HoverIconPosition hoverIconPosition;
+  
+  /// Layout direction for hover icons (default: auto)
+  final HoverIconLayout hoverIconLayout;
+  
+  /// Enable hover icons (default: true on web, false on mobile)
+  final bool enableHoverIcons;
+  
+  /// Spacing between hover icons when both are shown
+  final double hoverIconSpacing;
+  
+  /// Padding around hover icons from the edge
+  final EdgeInsetsGeometry hoverIconPadding;
+  
+  /// Callback when download icon is tapped
+  final VoidCallback? onDownloadTap;
+  
+  /// Callback when copy icon is tapped  
+  final VoidCallback? onCopyTap;
+  
   /// NEW v0.2.0: Widget-based error handling (RECOMMENDED)
   /// Custom error widget to show when image fails to load
   final Widget? errorWidget;
@@ -104,6 +172,15 @@ class CustomNetworkImage extends StatefulWidget {
   /// The old text-based parameters are deprecated but still supported.
   /// 
   /// Use [customLoadingBuilder] instead of loadingBuilder for reliable loading progress tracking.
+  /// Use [onImageLoaded] to receive image data when loading is successful for copy functionality.
+  /// 
+  /// NEW: Hover icons for quick actions (web/desktop):
+  /// - [downloadIcon]: Custom icon for download action
+  /// - [copyIcon]: Custom icon for copy action  
+  /// - [hoverIconPosition]: Position of icons (topLeft, topRight, etc.)
+  /// - [enableHoverIcons]: Enable/disable hover functionality
+  /// - [hoverIconSpacing]: Space between icons when both are shown
+  /// - [hoverIconPadding]: Padding around icons from image edge
   const CustomNetworkImage({
     Key? key,
     required this.url,
@@ -131,6 +208,7 @@ class CustomNetworkImage extends StatefulWidget {
     this.onTap,
     this.transformationController,
     this.uniqueId,
+    this.onImageLoaded, // NEW: Image data callback
     // NEW widget-based parameters (v0.2.0+)
     this.errorWidget,
     this.reloadWidget,
@@ -143,6 +221,15 @@ class CustomNetworkImage extends StatefulWidget {
     @Deprecated('Use openUrlWidget parameter instead. This will be removed in v1.0.0')
     this.openUrlText,
     this.errorBackgroundColor,
+    this.downloadIcon,
+    this.copyIcon,
+    this.hoverIconPosition = HoverIconPosition.topRight,
+    this.enableHoverIcons = true,
+    this.hoverIconSpacing = 8.0,
+    this.hoverIconPadding = EdgeInsets.zero,
+    this.hoverIconLayout = HoverIconLayout.auto,
+    this.onDownloadTap,
+    this.onCopyTap,
   }) : super(key: key);
 
   @override
@@ -165,6 +252,12 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   ImageStream? _imageStream;
   ImageStreamListener? _imageStreamListener;
   
+  // NEW: Store image data for copy functionality
+  ImageDataInfo? _imageData;
+  
+  // NEW: Hover state for showing action icons
+  bool _isHovering = false;
+
   @override
   void initState() {
     super.initState();
@@ -387,15 +480,17 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       _loadError = false;
       _htmlError = false;
       _waitingForHtml = false;
+      _imageData = null; // Reset image data
     });
     
     // Create image provider and stream
     final imageProvider = NetworkImage(widget.url, headers: widget.headers);
     _imageStream = imageProvider.resolve(ImageConfiguration.empty);
     
+    
     // Create our custom listener that tracks progress more reliably
     _imageStreamListener = ImageStreamListener(
-      (ImageInfo info, bool synchronousCall) {
+      (ImageInfo info, bool synchronousCall) async {
         // Image loaded successfully
         print('Image loaded successfully');
         if (mounted) {
@@ -409,6 +504,28 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
           if (_transformSyncController.isAnimating) {
             _transformSyncController.stop();
           }
+          
+          // NEW: Extract image data for copy functionality
+          if (widget.onImageLoaded != null) {
+            try {
+              // Get the image bytes
+              final Uint8List? imageBytes = await _getImageBytes(imageProvider);
+              if (imageBytes != null) {
+                final imageData = ImageDataInfo(
+                  imageBytes: imageBytes,
+                  width: info.image.width,
+                  height: info.image.height,
+                  url: widget.url,
+                );
+                
+                // Store image data and call callback
+                _imageData = imageData;
+                widget.onImageLoaded!(imageData);
+              }
+            } catch (e) {
+              print('Error extracting image data: $e');
+            }
+          }
         }
       },
       onError: (dynamic error, StackTrace? stackTrace) {
@@ -420,6 +537,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             _loadingProgress = null;
             _loadError = true;
             _waitingForHtml = true; // We'll try HTML next
+            _imageData = null; // Clear image data on error
           });
           
           // Start animation controller for frequent updates
@@ -448,6 +566,44 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     // Add the listener to the stream
     _imageStream!.addListener(_imageStreamListener!);
+  }
+
+  // NEW: Helper method to extract image bytes from ImageProvider
+  Future<Uint8List?> _getImageBytes(ImageProvider imageProvider) async {
+    try {
+      final ImageStream stream = imageProvider.resolve(ImageConfiguration.empty);
+      final Completer<Uint8List?> completer = Completer<Uint8List?>();
+      
+      late ImageStreamListener listener;
+      listener = ImageStreamListener(
+        (ImageInfo info, bool synchronousCall) async {
+          try {
+            final ByteData? byteData = await info.image.toByteData(format: ui.ImageByteFormat.png);
+            final Uint8List? bytes = byteData?.buffer.asUint8List();
+            stream.removeListener(listener);
+            completer.complete(bytes);
+          } catch (e) {
+            stream.removeListener(listener);
+            completer.complete(null);
+          }
+        },
+        onError: (dynamic error, StackTrace? stackTrace) {
+          stream.removeListener(listener);
+          completer.complete(null);
+        },
+      );
+      
+      stream.addListener(listener);
+      return await completer.future;
+    } catch (e) {
+      print('Error getting image bytes: $e');
+      return null;
+    }
+  }
+
+  // NEW: Public method to get current image data (if available)
+  ImageDataInfo? getCurrentImageData() {
+    return _imageData;
   }
 
   @override
@@ -520,6 +676,11 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       imageWidget = _buildExtendedImageFallback();
     }
     
+    // NEW: Wrap with hover functionality if enabled and we have icons
+    if (widget.enableHoverIcons && _shouldShowHoverIcons()) {
+      imageWidget = _buildHoverImageWidget(imageWidget);
+    }
+    
     // Wrap with GestureDetector only if we have an onTap and not using HTML fallback
     // (HTML fallback has its own tap handling)
     if (widget.onTap != null && !(kIsWeb && _loadError)) {
@@ -569,8 +730,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                 if (_waitingForHtml)
                   Container(
                     color: Colors.grey[300],
-                    child: Center(
-                      child: Column(
+                    child: const Center(
+                      child: const Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           CircularProgressIndicator(),
@@ -621,7 +782,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             // Use our custom loading builder if available
             if (widget.customLoadingBuilder != null) {
               // Create synthetic progress for ExtendedImage
-              final syntheticProgress = CustomImageProgress(
+              final syntheticProgress = const CustomImageProgress(
                 cumulativeBytesLoaded: 0,
                 expectedTotalBytes: null,
                 progress: null,
@@ -632,7 +793,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                 syntheticProgress
               );
             }
-            return Center(
+            return const Center(
               child: CircularProgressIndicator(),
             );
           case LoadState.completed:
@@ -645,7 +806,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
               width: widget.width,
               height: widget.height,
               color: Colors.grey[300],
-              child: Center(
+              child: const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -672,9 +833,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error, color: Colors.red),
+          const Icon(Icons.error, color: Colors.red),
           if (widget.errorText?.isNotEmpty == true) ...[
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(errorMessage),
           ],
         ],
@@ -686,9 +847,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.refresh),
+          const Icon(Icons.refresh),
           if (widget.reloadText?.isNotEmpty == true) ...[
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(reloadMessage),
           ],
         ],
@@ -700,9 +861,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.open_in_new),
+          const Icon(Icons.open_in_new),
           if (widget.openUrlText?.isNotEmpty == true) ...[
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(openUrlMessage),
           ],
         ],
@@ -712,7 +873,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     // Determine which widgets to use (new widget parameters take precedence)
     final errorWidget = widget.errorWidget ?? 
         (widget.errorText != null ? _createDefaultErrorWidget() : 
-         Row(
+         const Row(
            mainAxisSize: MainAxisSize.min,
            children: [
              Icon(Icons.error, color: Colors.red),
@@ -723,7 +884,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
 
     final reloadWidget = widget.reloadWidget ?? 
         (widget.reloadText != null ? _createDefaultReloadWidget() : 
-         Row(
+         const Row(
            mainAxisSize: MainAxisSize.min,
            children: [
              Icon(Icons.refresh),
@@ -734,7 +895,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
 
     final openUrlWidget = widget.openUrlWidget ?? 
         (widget.openUrlText != null ? _createDefaultOpenUrlWidget() : 
-         Row(
+         const Row(
            mainAxisSize: MainAxisSize.min,
            children: [
              Icon(Icons.open_in_new),
@@ -821,5 +982,183 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         ),
       ),
     );
+  }
+
+  // NEW: Check if we should show hover icons
+  bool _shouldShowHoverIcons() {
+    return (widget.downloadIcon != null || widget.copyIcon != null) && 
+           (_imageData != null || _loadingState == ImageLoadingState.loaded);
+  }
+  
+  // NEW: Build image widget with hover functionality
+  Widget _buildHoverImageWidget(Widget imageWidget) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: Stack(
+        children: [
+          imageWidget,
+          if (_isHovering) _buildHoverIcons(),
+        ],
+      ),
+    );
+  }
+  
+  // NEW: Build hover icons overlay
+  Widget _buildHoverIcons() {
+    final List<Widget> icons = [];
+    
+    // Add download icon if provided
+    if (widget.downloadIcon != null) {
+      icons.add(
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              print('Download icon tapped');
+              if (widget.onDownloadTap != null) {
+                widget.onDownloadTap!();
+              } else {
+                _handleDownloadTap();
+              }
+            },
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: widget.downloadIcon!,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Add copy icon if provided
+    if (widget.copyIcon != null) {
+      icons.add(
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              print('Copy icon tapped');
+              if (widget.onCopyTap != null) {
+                widget.onCopyTap!();
+              } else {
+                _handleCopyTap();
+              }
+            },
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: widget.copyIcon!,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    if (icons.isEmpty) return SizedBox.shrink();
+    
+    // Position the icons based on the selected position
+    return _getIconPositionedWidget(
+      Padding(
+        padding: widget.hoverIconPadding,
+        child: _getIconLayout(icons),
+      ),
+    );
+  }
+  
+  // NEW: Get positioning properties for the icons
+  Positioned _getIconPositionedWidget(Widget child) {
+    switch (widget.hoverIconPosition) {
+      case HoverIconPosition.topLeft:
+        return Positioned(top: 0, left: 0, child: child);
+      case HoverIconPosition.topRight:
+        return Positioned(top: 0, right: 0, child: child);
+      case HoverIconPosition.bottomLeft:
+        return Positioned(bottom: 0, left: 0, child: child);
+      case HoverIconPosition.bottomRight:
+        return Positioned(bottom: 0, right: 0, child: child);
+      case HoverIconPosition.topCenter:
+        return Positioned(top: 0, left: 0, right: 0, child: child);
+      case HoverIconPosition.bottomCenter:
+        return Positioned(bottom: 0, left: 0, right: 0, child: child);
+    }
+  }
+  
+  // NEW: Get layout for icons (row or column based on position and layout setting)
+  Widget _getIconLayout(List<Widget> icons) {
+    bool useHorizontalLayout;
+    
+    // Determine layout direction based on setting
+    switch (widget.hoverIconLayout) {
+      case HoverIconLayout.row:
+        useHorizontalLayout = true;
+        break;
+      case HoverIconLayout.column:
+        useHorizontalLayout = false;
+        break;
+      case HoverIconLayout.auto:
+        // Auto: horizontal for center positions, vertical for corner positions
+        useHorizontalLayout = widget.hoverIconPosition == HoverIconPosition.topCenter ||
+                             widget.hoverIconPosition == HoverIconPosition.bottomCenter;
+        break;
+    }
+    
+    if (useHorizontalLayout) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: widget.hoverIconPosition == HoverIconPosition.topCenter ||
+                          widget.hoverIconPosition == HoverIconPosition.bottomCenter
+            ? MainAxisAlignment.center 
+            : MainAxisAlignment.start,
+        children: icons.expand((icon) => [
+          icon, 
+          if (icon != icons.last) SizedBox(width: widget.hoverIconSpacing)
+        ]).toList(),
+      );
+    } else {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: icons.expand((icon) => [
+          icon, 
+          if (icon != icons.last) SizedBox(height: widget.hoverIconSpacing)
+        ]).toList(),
+      );
+    }
+  }
+  
+  // NEW: Handle download icon tap
+  Future<void> _handleDownloadTap() async {
+    if (_imageData == null) return;
+    
+    try {
+      // Use download method for download action
+      final success = await ImageClipboardHelper.downloadImage(_imageData!);
+      print('Download action: ${success ? 'success' : 'failed'}');
+    } catch (e) {
+      print('Download error: $e');
+    }
+  }
+  
+  // NEW: Handle copy icon tap  
+  Future<void> _handleCopyTap() async {
+    if (_imageData == null) return;
+    
+    try {
+      // Use clipboard copy method for copy action
+      final success = await ImageClipboardHelper.copyImageToClipboard(_imageData!);
+      print('Copy action: ${success ? 'success' : 'failed'}');
+    } catch (e) {
+      print('Copy error: $e');
+    }
   }
 } 

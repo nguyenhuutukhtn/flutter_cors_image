@@ -1,5 +1,166 @@
 # Changelog
 
+## 0.3.0 - Major Feature Release: Hover Icons & Image Data Access
+
+### 🚀 New Major Features
+
+#### **Image Data Callback System**
+* **NEW**: `onImageLoaded` callback provides immediate access to image data when loading completes
+* **NEW**: `ImageDataInfo` class contains image bytes, dimensions, and URL for copy/download operations
+* **Feature**: No waiting required - image data available instantly after load for clipboard/download functionality
+
+#### **Hover Icons with Smart Positioning**
+* **NEW**: `downloadIcon` and `copyIcon` parameters for custom action icons that appear on hover
+* **NEW**: 6 positioning options via `HoverIconPosition` enum:
+  * `topLeft`, `topRight`, `bottomLeft`, `bottomRight`, `topCenter`, `bottomCenter`
+* **NEW**: 3 layout modes via `HoverIconLayout` enum:
+  * `auto` - Smart layout based on position
+  * `row` - Always horizontal arrangement
+  * `column` - Always vertical arrangement
+* **NEW**: Customizable spacing (`hoverIconSpacing`) and padding (`hoverIconPadding`)
+* **NEW**: `enableHoverIcons` toggle for full control
+
+#### **Advanced Clipboard & Download System**
+* **NEW**: Separate `downloadImage()` and `copyImageToClipboard()` methods with distinct behaviors:
+  * **Download**: Saves PNG file to computer (web: Downloads folder, mobile: temp directory)
+  * **Copy**: Copies image to system clipboard for pasting with Ctrl+V
+* **NEW**: Cross-platform clipboard support using modern Clipboard API on web
+* **NEW**: Custom action callbacks: `onDownloadTap` and `onCopyTap` for overriding default behaviors
+
+#### **Enhanced User Experience**
+* **NEW**: Smart hover detection with smooth icon transitions (web/desktop only)
+* **NEW**: Material design click feedback with `InkWell` integration
+* **NEW**: Comprehensive example app showcasing all features with live controls
+* **NEW**: Real-time customization via control panel (position, layout, spacing, padding)
+
+### 🎨 Usage Examples
+
+#### **Basic Hover Icons**
+```dart
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  
+  // ✅ NEW: Hover icons for quick actions
+  downloadIcon: Icon(Icons.download, color: Colors.white, size: 20),
+  copyIcon: Icon(Icons.copy, color: Colors.white, size: 20),
+  hoverIconPosition: HoverIconPosition.topRight,
+  
+  // ✅ NEW: Get image data when loaded
+  onImageLoaded: (ImageDataInfo imageData) {
+    print('Image ready! Size: ${imageData.width}x${imageData.height}');
+    // imageData.imageBytes contains raw PNG data for copying/saving
+  },
+)
+```
+
+#### **Advanced Styled Icons**
+```dart
+CustomNetworkImage(
+  url: imageUrl,
+  downloadIcon: Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(colors: [Colors.blue, Colors.blueAccent]),
+      borderRadius: BorderRadius.circular(8),
+      boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+    ),
+    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.download, color: Colors.white, size: 16),
+        SizedBox(width: 4),
+        Text('Download', style: TextStyle(color: Colors.white)),
+      ],
+    ),
+  ),
+  hoverIconPosition: HoverIconPosition.bottomRight,
+  hoverIconLayout: HoverIconLayout.row,
+  
+  // ✅ Custom action callbacks
+  onDownloadTap: () => customDownloadHandler(),
+  onCopyTap: () => customCopyHandler(),
+)
+```
+
+#### **Using Image Data for Copy Operations**
+```dart
+ImageDataInfo? _imageData;
+
+CustomNetworkImage(
+  url: imageUrl,
+  onImageLoaded: (imageData) {
+    setState(() => _imageData = imageData);
+  },
+)
+
+// Later, copy to clipboard
+ElevatedButton(
+  onPressed: () async {
+    if (_imageData != null) {
+      final success = await ImageClipboardHelper.copyImageToClipboard(_imageData!);
+      // Image is now in clipboard, ready for Ctrl+V pasting!
+    }
+  },
+  child: Text('Copy Image'),
+)
+```
+
+### 🛠️ Technical Implementation
+
+#### **New Classes & Enums**
+```dart
+// Image data container
+class ImageDataInfo {
+  final Uint8List imageBytes;  // Raw PNG data
+  final int width, height;     // Dimensions
+  final String url;           // Original URL
+}
+
+// Icon positioning
+enum HoverIconPosition {
+  topLeft, topRight, bottomLeft, bottomRight, topCenter, bottomCenter
+}
+
+// Layout direction
+enum HoverIconLayout {
+  auto, row, column
+}
+```
+
+#### **New Helper Methods**
+```dart
+// Clipboard & Download
+ImageClipboardHelper.copyImageToClipboard(imageData)  // Clipboard copy
+ImageClipboardHelper.downloadImage(imageData)         // File download
+
+// Platform-specific implementations
+copyImageToClipboardWeb(imageData)  // Web Clipboard API
+downloadImageWeb(imageData)          // Web file download
+```
+
+### 🔧 Platform Support
+* **Web**: Full clipboard copying + file downloads using modern Clipboard API and blob downloads
+* **Mobile**: Temp file saving + basic clipboard support (extensible with plugins)
+* **Desktop**: File path copying + temp file saving
+
+### 📱 Responsive Design
+* **Hover icons**: Auto-enabled on web/desktop, disabled on mobile (no hover support)
+* **Touch support**: Icons work with touch on platforms that support hover simulation
+* **Adaptive layouts**: Smart icon positioning based on screen real estate
+
+### 🧪 Comprehensive Testing
+* **Interactive example app** with live controls for all parameters
+* **Position examples grid** showing all 6 positions
+* **Layout comparison** demonstrating row vs column vs auto layouts
+* **Real-time customization** via sliders and toggles
+
+### 🔄 Backward Compatibility
+* **100% backward compatible** - existing code continues to work unchanged
+* **Optional features** - all new parameters have sensible defaults
+* **Progressive enhancement** - add hover icons gradually to existing implementations
+
+---
+
 ## 0.2.1 - Bug Fix Release
 
 ### 🐛 Bug Fixes
