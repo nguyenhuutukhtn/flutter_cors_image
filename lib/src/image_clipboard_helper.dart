@@ -26,7 +26,6 @@ class ImageClipboardHelper {
         return await _copyImageOnDesktop(imageData);
       }
     } catch (e) {
-      print('Error copying image to clipboard: $e');
       return false;
     }
   }
@@ -43,7 +42,6 @@ class ImageClipboardHelper {
         return await _downloadImageOnMobileDesktop(imageData);
       }
     } catch (e) {
-      print('Error downloading image: $e');
       return false;
     }
   }
@@ -57,7 +55,6 @@ class ImageClipboardHelper {
       final success = await downloadImageWeb(imageData);
       return success;
     } catch (e) {
-      print('Error downloading image on web: $e');
       return false;
     }
   }
@@ -69,7 +66,6 @@ class ImageClipboardHelper {
       final filePath = await _saveImageToDownloads(imageData);
       return filePath != null;
     } catch (e) {
-      print('Error downloading image on mobile/desktop: $e');
       return false;
     }
   }
@@ -90,10 +86,8 @@ class ImageClipboardHelper {
       final file = File(filePath);
       await file.writeAsBytes(imageData.imageBytes);
       
-      print('Image saved to: $filePath');
       return filePath;
     } catch (e) {
-      print('Error saving image to downloads: $e');
       return null;
     }
   }
@@ -115,7 +109,7 @@ class ImageClipboardHelper {
         });
         return result == true;
       } catch (e) {
-        print('Platform channel not available: $e');
+        // Platform channel not available
       }
       
       // Method 2: Fallback - save to temp file and copy file path
@@ -127,7 +121,6 @@ class ImageClipboardHelper {
       
       return false;
     } catch (e) {
-      print('Error copying image on mobile: $e');
       return false;
     }
   }
@@ -148,7 +141,6 @@ class ImageClipboardHelper {
       
       return false;
     } catch (e) {
-      print('Error copying image on desktop: $e');
       return false;
     }
   }
@@ -173,7 +165,6 @@ class ImageClipboardHelper {
       
       return filePath;
     } catch (e) {
-      print('Error saving image to temp file: $e');
       return null;
     }
   }

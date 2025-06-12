@@ -7,8 +7,6 @@ import 'custom_network_image.dart';
 /// Copy image to clipboard on web for pasting in other applications
 Future<bool> copyImageToClipboardWeb(ImageDataInfo imageData) async {
   try {
-    print('Copying image to clipboard...');
-    
     // Method 1: Use modern Clipboard API with ClipboardItem
     if (_supportsClipboardAPI()) {
       final success = await _copyWithClipboardAPI(imageData);
@@ -23,7 +21,6 @@ Future<bool> copyImageToClipboardWeb(ImageDataInfo imageData) async {
     return await _copyWithFallback(imageData);
     
   } catch (e) {
-    print('Error copying image to clipboard: $e');
     return false;
   }
 }
@@ -31,8 +28,6 @@ Future<bool> copyImageToClipboardWeb(ImageDataInfo imageData) async {
 /// Download image as file on web (separate from clipboard copying)
 Future<bool> downloadImageWeb(ImageDataInfo imageData) async {
   try {
-    print('Downloading image as PNG file...');
-    
     // Create a blob from the image bytes
     final blob = html.Blob([imageData.imageBytes], 'image/png');
     
@@ -51,11 +46,9 @@ Future<bool> downloadImageWeb(ImageDataInfo imageData) async {
     // Clean up the URL
     html.Url.revokeObjectUrl(url);
     
-    print('Image download initiated successfully');
     return true;
     
   } catch (e) {
-    print('Error downloading image on web: $e');
     return false;
   }
 }
@@ -81,15 +74,12 @@ Future<bool> _copyWithClipboardAPI(ImageDataInfo imageData) async {
     final success = await _simpleClipboardCopy(blob);
     
     if (success) {
-      print('Image copied to clipboard successfully!');
       return true;
     } else {
-      print('ClipboardAPI method failed, trying fallback...');
       return false;
     }
     
   } catch (e) {
-    print('ClipboardAPI method failed: $e');
     return false;
   }
 }
@@ -127,7 +117,6 @@ Future<bool> _simpleClipboardCopy(html.Blob blob) async {
     });
     
     final catchCallback = js.allowInterop((error) {
-      print('Simple clipboard copy failed: $error');
       completer.complete(false);
       script.remove(); // Clean up
     });
@@ -143,7 +132,6 @@ Future<bool> _simpleClipboardCopy(html.Blob blob) async {
     return await completer.future;
     
   } catch (e) {
-    print('Simple clipboard copy error: $e');
     return false;
   }
 }
@@ -151,8 +139,6 @@ Future<bool> _simpleClipboardCopy(html.Blob blob) async {
 /// Copy with fallback method (canvas approach)
 Future<bool> _copyWithFallback(ImageDataInfo imageData) async {
   try {
-    print('Using fallback clipboard method...');
-    
     // Create a canvas element
     final canvas = html.CanvasElement();
     canvas.width = imageData.width;
@@ -189,7 +175,6 @@ Future<bool> _copyWithFallback(ImageDataInfo imageData) async {
       // Clean up
       html.Url.revokeObjectUrl(url);
       
-      print('Image copied via fallback method!');
       return true;
     }
     
@@ -198,7 +183,6 @@ Future<bool> _copyWithFallback(ImageDataInfo imageData) async {
     return false;
     
   } catch (e) {
-    print('Fallback method failed: $e');
     return false;
   }
 }
@@ -217,7 +201,6 @@ Future<html.Blob?> _canvasToBlob(html.CanvasElement canvas) async {
     
     return await completer.future;
   } catch (e) {
-    print('Canvas to blob conversion failed: $e');
     return null;
   }
 }
@@ -244,15 +227,9 @@ Future<void> _promiseToFuture(dynamic jsPromise) async {
 /// Alternative canvas-based copying method
 Future<bool> _copyWithCanvasMethod(ImageDataInfo imageData) async {
   try {
-    print('Trying canvas-based clipboard copy...');
-    
     // Create canvas and draw image
     final canvas = html.CanvasElement(width: imageData.width, height: imageData.height);
     final ctx = canvas.context2D;
-    
-    // Create ImageData and put it on canvas
-    final imageDataJs = ctx.createImageData(imageData.width, imageData.height);
-    final data = imageDataJs.data;
     
     // Convert PNG bytes to RGBA format for canvas
     // This is a simplified approach - for full PNG decoding, we'd need a proper decoder
@@ -290,7 +267,6 @@ Future<bool> _copyWithCanvasMethod(ImageDataInfo imageData) async {
     return await completer.future;
     
   } catch (e) {
-    print('Canvas method failed: $e');
     return false;
   }
 }
@@ -314,7 +290,6 @@ Future<bool> _copyCanvasToClipboard(html.CanvasElement canvas) async {
     return await _simpleClipboardCopy(blob);
     
   } catch (e) {
-    print('Canvas to clipboard failed: $e');
     return false;
   }
 } 

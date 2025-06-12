@@ -91,7 +91,6 @@ void registerHtmlImageFactory(String viewId, String url) {
       // Helper function to trigger error callback
       void triggerErrorCallback() {
         if (_htmlImageErrorCallbacks.containsKey(viewId)) {
-          print('Triggering HTML error callback for $viewId');
           _htmlImageErrorCallbacks[viewId]!();
         }
       }
@@ -99,7 +98,6 @@ void registerHtmlImageFactory(String viewId, String url) {
       // Helper function to trigger success callback
       void triggerSuccessCallback() {
         if (_htmlImageSuccessCallbacks.containsKey(viewId)) {
-          print('Triggering HTML success callback for $viewId');
           _htmlImageSuccessCallbacks[viewId]!();
         }
       }
@@ -114,7 +112,6 @@ void registerHtmlImageFactory(String viewId, String url) {
 
       // Set a timeout as fallback in case both image attempts fail silently
       _timeoutTimers[viewId] = Timer(const Duration(seconds: 2), () {
-        print('HTML image loading timeout, triggering error callback');
         triggerErrorCallback();
       });
         
@@ -133,14 +130,11 @@ void registerHtmlImageFactory(String viewId, String url) {
         // Clear timeout on successful load
         imgElement.onLoad.listen((_) {
           clearTimeoutForViewId();
-          print('HTML image loaded successfully');
           triggerSuccessCallback();
         });
           
         // Add error handler to try fallback without CORS
         imgElement.onError.listen((event) {
-          print('HTML image load error, trying direct embed...');
-          
           // If CORS fails, remove the crossOrigin attribute and try again
           imgElement.remove();
           
@@ -157,13 +151,11 @@ void registerHtmlImageFactory(String viewId, String url) {
           // Clear timeout on successful load of direct image
           directImgElement.onLoad.listen((_) {
             clearTimeoutForViewId();
-            print('Direct HTML image loaded successfully');
             triggerSuccessCallback();
           });
             
           // Handle error in the last resort approach - trigger Flutter callback
           directImgElement.onError.listen((_) {
-            print('Direct HTML image also failed, triggering error callback');
             directImgElement.remove();
             clearTimeoutForViewId();
             // NEW v0.2.0: Trigger Flutter callback instead of showing HTML error
@@ -175,7 +167,6 @@ void registerHtmlImageFactory(String viewId, String url) {
         
         div.append(imgElement);
       } catch (e) {
-        print('Error creating HTML image element: $e');
         clearTimeoutForViewId();
         // NEW v0.2.0: Trigger Flutter callback instead of showing HTML error
         triggerErrorCallback();

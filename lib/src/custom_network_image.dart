@@ -283,7 +283,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       
       // NEW: Register HTML error callback
       setHtmlImageErrorCallback(_viewType, () {
-        print('HTML error callback triggered for $_viewType');
         if (mounted) {
           setState(() {
             _htmlError = true;
@@ -294,7 +293,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       
       // NEW: Register HTML success callback
       setHtmlImageSuccessCallback(_viewType, () {
-        print('HTML success callback triggered for $_viewType');
         if (mounted) {
           setState(() {
             _waitingForHtml = false; // Hide loading overlay
@@ -491,7 +489,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     _imageStreamListener = ImageStreamListener(
       (ImageInfo info, bool synchronousCall) async {
         // Image loaded successfully
-        print('Image loaded successfully');
         if (mounted) {
           setState(() {
             _loadingState = ImageLoadingState.loaded;
@@ -522,14 +519,13 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                 widget.onImageLoaded!(imageData);
               }
             } catch (e) {
-              print('Error extracting image data: $e');
+              // Error extracting image data
             }
           }
         }
       },
       onError: (dynamic error, StackTrace? stackTrace) {
         // Image failed to load
-        print('Error pre-loading image: $error');
         if (mounted) {
           setState(() {
             _loadingState = ImageLoadingState.failed;
@@ -595,7 +591,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       stream.addListener(listener);
       return await completer.future;
     } catch (e) {
-      print('Error getting image bytes: $e');
       return null;
     }
   }
@@ -607,11 +602,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    print('Building CustomNetworkImage: _loadError=$_loadError, _htmlError=$_htmlError, _waitingForHtml=$_waitingForHtml, _loadingState=$_loadingState');
-    
-    // NEW v0.2.0: If HTML also failed, show Flutter error UI
     if (kIsWeb && _loadError && _htmlError) {
-      print('Showing Flutter error widget');
       return _buildFlutterErrorWidget();
     }
     
@@ -619,17 +610,14 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     // If we're on web and already know the image will fail, go straight to HTML
     if (kIsWeb && _loadError) {
-      print('Using HTML fallback');
       imageWidget = _buildHtmlImageView();
     } 
     // If we're still loading and have a custom loading builder, show loading state
     else if (_loadingState == ImageLoadingState.loading && widget.customLoadingBuilder != null) {
-      print('Showing custom loading state');
       imageWidget = _buildCustomLoadingWidget();
     }
     // If we haven't detected an error yet, try normal Flutter image
     else if (!_loadError) {
-      print('Using Flutter Image.network');
       imageWidget = Image.network(
         widget.url,
         key: _key,
@@ -653,14 +641,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         filterQuality: widget.filterQuality,
         isAntiAlias: widget.isAntiAlias,
         errorBuilder: (context, error, stackTrace) {
-          print('Error loading image with Flutter: $error');
-          
-          // Use custom errorBuilder if provided
-          if (widget.errorBuilder != null) {
-            return widget.errorBuilder!(context, error, stackTrace);
-          }
-          
-          // Don't call setState here - we'll handle via initState preloading
           if (kIsWeb) {
             // We're already in error state, use HTML fallback
             return _buildHtmlImageView();
@@ -960,7 +940,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                             // This will be handled by the conditional import
                             openUrlInNewTab(widget.url);
                           } catch (e) {
-                            print('Error opening URL: $e');
+                            // Error opening URL
                           }
                         }
                       },
@@ -1014,7 +994,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
-              print('Download icon tapped');
               if (widget.onDownloadTap != null) {
                 widget.onDownloadTap!();
               } else {
@@ -1042,7 +1021,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
-              print('Copy icon tapped');
               if (widget.onCopyTap != null) {
                 widget.onCopyTap!();
               } else {
@@ -1142,9 +1120,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     try {
       // Use download method for download action
       final success = await ImageClipboardHelper.downloadImage(_imageData!);
-      print('Download action: ${success ? 'success' : 'failed'}');
     } catch (e) {
-      print('Download error: $e');
+      // Error downloading image
     }
   }
   
@@ -1155,9 +1132,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     try {
       // Use clipboard copy method for copy action
       final success = await ImageClipboardHelper.copyImageToClipboard(_imageData!);
-      print('Copy action: ${success ? 'success' : 'failed'}');
     } catch (e) {
-      print('Copy error: $e');
+      // Error copying image
     }
   }
 } 
