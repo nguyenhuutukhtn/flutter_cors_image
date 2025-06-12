@@ -710,7 +710,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                   Container(
                     color: Colors.grey[300],
                     child: const Center(
-                      child: const Column(
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           CircularProgressIndicator(),
@@ -1119,7 +1119,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     try {
       // Use download method for download action
-      final success = await ImageClipboardHelper.downloadImage(_imageData!);
+      await ImageClipboardHelper.downloadImage(_imageData!);
     } catch (e) {
       // Error downloading image
     }
@@ -1131,7 +1131,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     try {
       // Use clipboard copy method for copy action
-      final success = await ImageClipboardHelper.copyImageToClipboard(_imageData!);
+      await ImageClipboardHelper.copyImageToClipboard(_imageData!);
     } catch (e) {
       // Error copying image
     }
