@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'dart:html' as html;
 import 'dart:js' as js;
-import 'dart:typed_data';
 import 'custom_network_image.dart';
 
 /// Copy image to clipboard on web for pasting in other applications
@@ -189,26 +188,4 @@ Future<void> _promiseToFuture(dynamic jsPromise) async {
   jsPromise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
   
   return completer.future;
-}
-
-// Local base64 encoding for web (kept as backup)
-String _base64Encode(List<int> bytes) {
-  const String chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  String result = '';
-  
-  int i = 0;
-  while (i < bytes.length) {
-    int byte1 = bytes[i++];
-    int byte2 = i < bytes.length ? bytes[i++] : 0;
-    int byte3 = i < bytes.length ? bytes[i++] : 0;
-    
-    int combined = (byte1 << 16) | (byte2 << 8) | byte3;
-    
-    result += chars[(combined >> 18) & 63];
-    result += chars[(combined >> 12) & 63];
-    result += i - 2 < bytes.length ? chars[(combined >> 6) & 63] : '=';
-    result += i - 1 < bytes.length ? chars[combined & 63] : '=';
-  }
-  
-  return result;
 } 
