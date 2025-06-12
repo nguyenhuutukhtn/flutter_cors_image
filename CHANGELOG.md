@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.3.1 - Clipboard Fix Release
+
+### 🐛 Bug Fixes
+* **Fixed Clipboard Copying Issue**: Resolved critical bug where clipboard copying failed with "DataError: Failed to read or decode ClipboardItemData for type image/png"
+  * **Root Cause**: Complex JavaScript object manipulation wasn't reliable across browsers
+  * **Solution**: Implemented simplified JavaScript approach using direct script injection
+  * **New Method**: Created `_simpleClipboardCopy()` with cleaner function definition in global scope
+  * **Better Error Handling**: Added proper cleanup and graceful fallback to alternative methods
+  * **Multi-Method Fallback**: Now tries 3 different approaches if one fails
+
+### 🔧 Technical Changes
+* **Simplified Clipboard API**: More reliable ClipboardItem creation using direct JavaScript functions
+* **Enhanced Fallback System**: Canvas-based approach as secondary method, legacy fallback as tertiary
+* **Improved Error Logging**: Better debugging information to identify which copy method succeeds
+* **Resource Management**: Proper cleanup of created script elements to prevent memory leaks
+
+### 🧪 Validation
+* ✅ Copy icon click now successfully copies images to clipboard
+* ✅ Ctrl+V pasting works correctly in external applications
+* ✅ Multiple fallback methods ensure compatibility across different browsers
+* ✅ Proper error messages and graceful degradation when clipboard access is restricted
+
+---
+
 ## 0.3.0 - Major Feature Release: Hover Icons & Image Data Access
 
 ### 🚀 New Major Features

@@ -11,10 +11,15 @@ Future<bool> copyImageToClipboardWeb(ImageDataInfo imageData) async {
     
     // Method 1: Use modern Clipboard API with ClipboardItem
     if (_supportsClipboardAPI()) {
-      return await _copyWithClipboardAPI(imageData);
+      final success = await _copyWithClipboardAPI(imageData);
+      if (success) return true;
     }
     
-    // Method 2: Fallback for older browsers
+    // Method 2: Try alternative canvas-based approach
+    final canvasSuccess = await _copyWithCanvasMethod(imageData);
+    if (canvasSuccess) return true;
+    
+    // Method 3: Fallback for older browsers
     return await _copyWithFallback(imageData);
     
   } catch (e) {
@@ -69,30 +74,76 @@ bool _supportsClipboardAPI() {
 /// Copy using modern Clipboard API (works in most modern browsers)
 Future<bool> _copyWithClipboardAPI(ImageDataInfo imageData) async {
   try {
-    // Create blob from image bytes
+    // Create blob from image bytes with explicit MIME type
     final blob = html.Blob([imageData.imageBytes], 'image/png');
     
-    // Use JavaScript to create ClipboardItem and copy
-    final jsBlob = js.JsObject.fromBrowserObject(blob);
+    // Simple JavaScript approach that's more reliable
+    final success = await _simpleClipboardCopy(blob);
     
-    // Create ClipboardItem using JS
-    final clipboardData = js.JsObject(js.context['Object']);
-    clipboardData['image/png'] = jsBlob;
-    
-    final clipboardItem = js.JsObject(js.context['ClipboardItem'], [clipboardData]);
-    final clipboardItems = js.JsArray.from([clipboardItem]);
-    
-    // Write to clipboard
-    final promise = js.context['navigator']['clipboard'].callMethod('write', [clipboardItems]);
-    
-    // Convert JS Promise to Dart Future
-    await _promiseToFuture(promise);
-    
-    print('Image copied to clipboard successfully!');
-    return true;
+    if (success) {
+      print('Image copied to clipboard successfully!');
+      return true;
+    } else {
+      print('ClipboardAPI method failed, trying fallback...');
+      return false;
+    }
     
   } catch (e) {
     print('ClipboardAPI method failed: $e');
+    return false;
+  }
+}
+
+/// Simple clipboard copy using direct JavaScript
+Future<bool> _simpleClipboardCopy(html.Blob blob) async {
+  try {
+    final completer = Completer<bool>();
+    
+    // Use a simpler approach that's less prone to errors
+    final script = html.ScriptElement();
+    script.text = '''
+      window.copyImageToClipboard = async function(blob) {
+        try {
+          const clipboardItem = new ClipboardItem({ 'image/png': blob });
+          await navigator.clipboard.write([clipboardItem]);
+          return true;
+        } catch (e) {
+          console.error('Clipboard copy failed:', e);
+          return false;
+        }
+      };
+    ''';
+    
+    html.document.head!.append(script);
+    
+    // Call the function
+    final jsBlob = js.JsObject.fromBrowserObject(blob);
+    final promise = js.context.callMethod('copyImageToClipboard', [jsBlob]);
+    
+    // Handle the promise
+    final thenCallback = js.allowInterop((result) {
+      completer.complete(result == true);
+      script.remove(); // Clean up
+    });
+    
+    final catchCallback = js.allowInterop((error) {
+      print('Simple clipboard copy failed: $error');
+      completer.complete(false);
+      script.remove(); // Clean up
+    });
+    
+    if (promise != null) {
+      promise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
+    } else {
+      // Promise not supported
+      completer.complete(false);
+      script.remove();
+    }
+    
+    return await completer.future;
+    
+  } catch (e) {
+    print('Simple clipboard copy error: $e');
     return false;
   }
 }
@@ -188,4 +239,82 @@ Future<void> _promiseToFuture(dynamic jsPromise) async {
   jsPromise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
   
   return completer.future;
+}
+
+/// Alternative canvas-based copying method
+Future<bool> _copyWithCanvasMethod(ImageDataInfo imageData) async {
+  try {
+    print('Trying canvas-based clipboard copy...');
+    
+    // Create canvas and draw image
+    final canvas = html.CanvasElement(width: imageData.width, height: imageData.height);
+    final ctx = canvas.context2D;
+    
+    // Create ImageData and put it on canvas
+    final imageDataJs = ctx.createImageData(imageData.width, imageData.height);
+    final data = imageDataJs.data;
+    
+    // Convert PNG bytes to RGBA format for canvas
+    // This is a simplified approach - for full PNG decoding, we'd need a proper decoder
+    // For now, let's use the blob approach which should work better
+    
+    final blob = html.Blob([imageData.imageBytes], 'image/png');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final img = html.ImageElement();
+    
+    final completer = Completer<bool>();
+    
+    img.onLoad.listen((_) async {
+      try {
+        // Draw image to canvas
+        ctx.clearRect(0, 0, imageData.width, imageData.height);
+        ctx.drawImageScaled(img, 0, 0, imageData.width, imageData.height);
+        
+        // Try to copy canvas content to clipboard
+        final success = await _copyCanvasToClipboard(canvas);
+        html.Url.revokeObjectUrl(url);
+        completer.complete(success);
+        
+      } catch (e) {
+        html.Url.revokeObjectUrl(url);
+        completer.complete(false);
+      }
+    });
+    
+    img.onError.listen((_) {
+      html.Url.revokeObjectUrl(url);
+      completer.complete(false);
+    });
+    
+    img.src = url;
+    return await completer.future;
+    
+  } catch (e) {
+    print('Canvas method failed: $e');
+    return false;
+  }
+}
+
+/// Copy canvas content to clipboard
+Future<bool> _copyCanvasToClipboard(html.CanvasElement canvas) async {
+  try {
+    // Convert canvas to blob
+    final completer = Completer<html.Blob?>();
+    
+    canvas.toBlob().then((blob) {
+      completer.complete(blob);
+    }).catchError((error) {
+      completer.complete(null);
+    });
+    
+    final blob = await completer.future;
+    if (blob == null) return false;
+    
+    // Use the simple JavaScript method to copy
+    return await _simpleClipboardCopy(blob);
+    
+  } catch (e) {
+    print('Canvas to clipboard failed: $e');
+    return false;
+  }
 } 
