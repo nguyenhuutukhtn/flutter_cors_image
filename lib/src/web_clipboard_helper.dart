@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'dart:html' as html;
 import 'dart:js' as js;
-import 'custom_network_image.dart';
 import 'types.dart';
 
 /// Copy image to clipboard on web for pasting in other applications
