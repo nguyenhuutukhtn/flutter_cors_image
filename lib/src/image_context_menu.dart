@@ -190,28 +190,6 @@ class ImageContextMenu extends StatelessWidget {
     }
   }
   
-  /// Show a feedback message to the user
-  void _showMessage(BuildContext context, String message) {
-    // Check if the context is still valid and mounted
-    try {
-      if (ScaffoldMessenger.maybeOf(context) != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: message.contains('✅') ? Colors.green : 
-                           message.contains('❌') ? Colors.red : null,
-          ),
-        );
-      }
-    } catch (e) {
-      // Context is no longer valid, ignore the message
-      if (kDebugMode) {
-        print('Could not show message "$message" - context no longer valid');
-      }
-    }
-  }
   
   /// Show a feedback message using a pre-obtained ScaffoldMessenger
   void _showMessageWithMessenger(ScaffoldMessengerState? scaffoldMessenger, String message) {
