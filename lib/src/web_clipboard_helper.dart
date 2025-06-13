@@ -90,7 +90,7 @@ Future<bool> _simpleClipboardCopy(html.Blob blob) async {
     final completer = Completer<bool>();
     
     // Use a simpler approach that's less prone to errors
-    final script = html.ScriptElement();
+    final script = html.document.createElement('script');
     script.text = '''
       window.copyImageToClipboard = async function(blob) {
         try {

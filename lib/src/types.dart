@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 
 /// Custom loading state for tracking image loading progress
 enum ImageLoadingState {
@@ -23,6 +24,30 @@ enum HoverIconLayout {
   auto,    // Automatic based on position (vertical for corners, horizontal for center)
   row,     // Always horizontal
   column,  // Always vertical
+}
+
+/// Context menu actions for right-click functionality
+enum ContextMenuAction {
+  copyImage,
+  saveImage,
+  openImageInNewTab,
+  copyImageUrl,
+  custom,
+}
+
+/// Context menu item configuration
+class ContextMenuItem {
+  final String title;
+  final IconData? icon;
+  final ContextMenuAction action;
+  final VoidCallback? onTap;
+
+  const ContextMenuItem({
+    required this.title,
+    this.icon,
+    required this.action,
+    this.onTap,
+  });
 }
 
 /// Custom loading progress information

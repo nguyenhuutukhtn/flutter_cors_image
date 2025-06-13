@@ -1,5 +1,258 @@
 # Changelog
 
+## 0.3.3 - Right-Click Context Menu Release
+
+### 🚀 New Major Features
+
+#### **Right-Click Context Menu System (Web Only)**
+* **NEW**: Native-like right-click context menu for images with browser-style actions
+* **NEW**: `enableContextMenu` parameter to enable/disable context menu functionality
+* **NEW**: `customContextMenuItems` for adding custom menu items with icons and callbacks
+* **NEW**: Built-in context menu actions:
+  * **Copy image** - Copies image to system clipboard for Ctrl+V pasting
+  * **Save image as...** - Shows browser save dialog with File System Access API
+  * **Open image in new tab** - Opens image URL in new browser tab
+  * **Copy image address** - Copies image URL to clipboard
+
+#### **Advanced Context Menu Customization**
+* **NEW**: `ContextMenuItem` class for defining custom menu items with icons and actions
+* **NEW**: `ContextMenuAction` enum for built-in and custom actions
+* **NEW**: Context menu styling options:
+  * `contextMenuBackgroundColor` - Custom background color
+  * `contextMenuTextColor` - Custom text color
+  * `contextMenuElevation` - Shadow elevation
+  * `contextMenuBorderRadius` - Corner radius
+  * `contextMenuPadding` - Internal padding
+* **NEW**: `onContextMenuAction` callback for handling menu item selections
+
+#### **Smart Context Menu Behavior**
+* **NEW**: Automatic browser context menu prevention only when hovering over images
+* **NEW**: Smart positioning to keep menu on screen (auto-adjusts near edges)
+* **NEW**: Overlay-based rendering for proper z-index and click-outside dismissal
+* **NEW**: Works across all image loading states (loading, loaded, error, HTML fallback)
+
+#### **Enhanced Download & Save Experience**
+* **NEW**: File System Access API integration for proper save dialogs with location picker
+* **NEW**: Traditional blob download fallback for browser compatibility
+* **NEW**: Success/failure toast notifications with color-coded feedback
+* **NEW**: Proper file permissions and visibility in file system
+* **NEW**: Enhanced error handling with detailed logging for debugging
+
+### 🎨 Usage Examples
+
+#### **Basic Context Menu**
+```dart
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  width: 300,
+  height: 200,
+  
+  // ✅ NEW: Enable right-click context menu
+  enableContextMenu: true,
+  
+  // ✅ NEW: Handle context menu actions
+  onContextMenuAction: (action) {
+    print('Context menu action: $action');
+  },
+)
+```
+
+#### **Custom Context Menu Items**
+```dart
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  enableContextMenu: true,
+  
+  // ✅ NEW: Custom menu items with icons
+  customContextMenuItems: [
+    ContextMenuItem(
+      title: 'Download Image',
+      icon: Icons.download,
+      action: ContextMenuAction.saveImage,
+    ),
+    ContextMenuItem(
+      title: 'Copy to Clipboard',
+      icon: Icons.copy,
+      action: ContextMenuAction.copyImage,
+    ),
+    ContextMenuItem(
+      title: 'Custom Action',
+      icon: Icons.star,
+      action: ContextMenuAction.custom,
+      onTap: () {
+        // Custom action handler
+        print('Custom action executed!');
+      },
+    ),
+  ],
+  
+  // ✅ NEW: Custom styling
+  contextMenuBackgroundColor: Colors.grey[800],
+  contextMenuTextColor: Colors.white,
+  contextMenuElevation: 8.0,
+  contextMenuBorderRadius: BorderRadius.circular(12),
+)
+```
+
+#### **Context Menu with Toast Notifications**
+```dart
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  enableContextMenu: true,
+  onContextMenuAction: (action) {
+    // Toast notifications automatically shown for:
+    // ✅ Image saved successfully!
+    // ❌ Failed to save image
+    // Image copied to clipboard
+    // Image URL copied to clipboard
+    // Opening image in new tab
+  },
+)
+```
+
+### 🛠️ Technical Implementation
+
+#### **New Classes & Enums**
+```dart
+// Context menu item definition
+class ContextMenuItem {
+  final String title;
+  final IconData? icon;
+  final ContextMenuAction action;
+  final VoidCallback? onTap;
+}
+
+// Available context menu actions
+enum ContextMenuAction {
+  copyImage,           // Copy image to clipboard
+  saveImage,           // Save image with file picker
+  openImageInNewTab,   // Open in new browser tab
+  copyImageUrl,        // Copy URL to clipboard
+  custom,              // Custom action with onTap callback
+}
+```
+
+#### **Context Menu Parameters**
+```dart
+CustomNetworkImage(
+  // Context menu control
+  enableContextMenu: true,                    // Enable/disable context menu
+  customContextMenuItems: [...],              // Custom menu items
+  onContextMenuAction: (action) => {...},     // Action callback
+  
+  // Styling options
+  contextMenuBackgroundColor: Colors.white,   // Background color
+  contextMenuTextColor: Colors.black,         // Text color
+  contextMenuElevation: 8.0,                  // Shadow elevation
+  contextMenuBorderRadius: BorderRadius.circular(8), // Corner radius
+  contextMenuPadding: EdgeInsets.all(8),      // Internal padding
+)
+```
+
+### 🌐 Platform Support & Behavior
+
+#### **Web Platform (Primary Target)**
+* **✅ Full context menu functionality** with native-like behavior
+* **✅ File System Access API** for proper save dialogs with location picker
+* **✅ Clipboard API integration** for image and URL copying
+* **✅ Browser context menu prevention** only when hovering over images
+* **✅ Toast notifications** for user feedback
+
+#### **Mobile/Desktop Platforms**
+* **⚠️ Limited support** - Context menus are primarily a web/desktop concept
+* **✅ Hover icons remain available** as alternative for touch interfaces
+* **✅ Manual download/copy buttons** continue to work normally
+
+### 🎯 Smart Context Menu Features
+
+#### **Intelligent Positioning**
+* **Auto-adjustment**: Menu automatically repositions to stay on screen
+* **Edge detection**: Prevents menu from going off screen edges
+* **Responsive sizing**: Adapts to different screen sizes and orientations
+
+#### **State-Aware Behavior**
+* **Loading state**: Context menu available during image loading
+* **Loaded state**: Full functionality with image data access
+* **Error state**: Context menu still works with URL-based actions
+* **HTML fallback**: Context menu overlays HTML img elements
+
+#### **Browser Integration**
+* **Selective prevention**: Only prevents browser context menu when over images
+* **Normal browsing**: Browser context menu works normally on text, links, etc.
+* **Download integration**: Uses browser's download system for familiar UX
+
+### 🔧 Enhanced Download System
+
+#### **File System Access API (Modern Browsers)**
+* **Save dialog**: Shows native file picker for choosing save location
+* **File permissions**: Proper file permissions for visibility in file managers
+* **Progress feedback**: Toast notifications for save success/failure
+* **User control**: Full control over save location and filename
+
+#### **Fallback Download Methods**
+* **Blob download**: Traditional browser download to Downloads folder
+* **Direct download**: URL-based download as last resort
+* **Error handling**: Graceful degradation with detailed error logging
+
+### 📱 Example Integration
+
+#### **Complete Context Menu Demo**
+```dart
+class ContextMenuDemo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return CustomNetworkImage(
+      url: 'https://picsum.photos/300/200',
+      width: 300,
+      height: 200,
+      
+      // Enable context menu with default items
+      enableContextMenu: true,
+      
+      // Custom styling
+      contextMenuBackgroundColor: Colors.grey[800],
+      contextMenuTextColor: Colors.white,
+      contextMenuElevation: 12.0,
+      contextMenuBorderRadius: BorderRadius.circular(8),
+      
+      // Handle actions
+      onContextMenuAction: (action) {
+        switch (action) {
+          case ContextMenuAction.copyImage:
+            // Image copied to clipboard automatically
+            break;
+          case ContextMenuAction.saveImage:
+            // Save dialog shown automatically
+            break;
+          case ContextMenuAction.openImageInNewTab:
+            // Image opened in new tab automatically
+            break;
+          case ContextMenuAction.copyImageUrl:
+            // URL copied to clipboard automatically
+            break;
+        }
+      },
+    );
+  }
+}
+```
+
+### 🔄 Backward Compatibility
+* **100% backward compatible** - existing code continues to work unchanged
+* **Optional feature** - context menu is opt-in via `enableContextMenu` parameter
+* **No conflicts** - works alongside existing hover icons and callbacks
+* **Progressive enhancement** - add context menu to existing implementations gradually
+
+### 🧪 Comprehensive Testing
+* **Cross-browser testing** on Chrome, Firefox, Safari, Edge
+* **File System Access API** testing with save dialog functionality
+* **Clipboard integration** testing with copy/paste operations
+* **Context menu positioning** testing near screen edges
+* **Toast notification** testing for user feedback
+* **Error handling** testing for various failure scenarios
+
+---
+
 ## 0.3.2 - Controller Feature Release
 
 ### 🚀 New Major Features

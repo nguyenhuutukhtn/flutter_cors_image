@@ -7,6 +7,8 @@ import 'web_image_loader.dart' if (dart.library.io) 'stub_image_loader.dart';
 import 'image_clipboard_helper.dart';
 import 'types.dart';
 import 'custom_network_image_controller.dart';
+import 'disable_web_context_menu.dart';
+import 'image_context_menu.dart';
 
 /// A network image widget that handles problematic images by falling back to HTML img tag
 /// when the standard Flutter image loader fails.
@@ -83,6 +85,31 @@ class CustomNetworkImage extends StatefulWidget {
   /// Callback when copy icon is tapped  
   final VoidCallback? onCopyTap;
   
+  /// NEW: Context menu functionality
+  /// Enable right-click context menu (web only)
+  final bool enableContextMenu;
+  
+  /// Custom context menu items (if null, uses default items)
+  final List<ContextMenuItem>? customContextMenuItems;
+  
+  /// Context menu background color
+  final Color? contextMenuBackgroundColor;
+  
+  /// Context menu text color
+  final Color? contextMenuTextColor;
+  
+  /// Context menu elevation
+  final double? contextMenuElevation;
+  
+  /// Context menu border radius
+  final BorderRadius? contextMenuBorderRadius;
+  
+  /// Context menu padding
+  final EdgeInsetsGeometry? contextMenuPadding;
+  
+  /// Callback when context menu action is performed
+  final Function(ContextMenuAction)? onContextMenuAction;
+  
   /// NEW v0.2.0: Widget-based error handling (RECOMMENDED)
   /// Custom error widget to show when image fails to load
   final Widget? errorWidget;
@@ -140,6 +167,16 @@ class CustomNetworkImage extends StatefulWidget {
   /// - [enableHoverIcons]: Enable/disable hover functionality
   /// - [hoverIconSpacing]: Space between icons when both are shown
   /// - [hoverIconPadding]: Padding around icons from image edge
+  /// 
+  /// NEW: Context menu functionality (web only):
+  /// - [enableContextMenu]: Enable right-click context menu
+  /// - [customContextMenuItems]: Custom menu items (uses default if null)
+  /// - [contextMenuBackgroundColor]: Background color of context menu
+  /// - [contextMenuTextColor]: Text color of context menu
+  /// - [contextMenuElevation]: Elevation of context menu
+  /// - [contextMenuBorderRadius]: Border radius of context menu
+  /// - [contextMenuPadding]: Padding inside context menu
+  /// - [onContextMenuAction]: Callback when context menu action is performed
   const CustomNetworkImage({
     Key? key,
     required this.url,
@@ -191,6 +228,15 @@ class CustomNetworkImage extends StatefulWidget {
     this.hoverIconLayout = HoverIconLayout.auto,
     this.onDownloadTap,
     this.onCopyTap,
+    // Context menu parameters
+    this.enableContextMenu = true,
+    this.customContextMenuItems,
+    this.contextMenuBackgroundColor,
+    this.contextMenuTextColor,
+    this.contextMenuElevation,
+    this.contextMenuBorderRadius,
+    this.contextMenuPadding,
+    this.onContextMenuAction,
   }) : super(key: key);
 
   @override
@@ -218,6 +264,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   
   // NEW: Hover state for showing action icons
   bool _isHovering = false;
+  
+  // NEW: Context menu state
+  OverlayEntry? _contextMenuOverlay;
 
   @override
   void initState() {
@@ -392,6 +441,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   
   @override
   void dispose() {
+    // Clean up context menu
+    _removeContextMenu();
+    
     // Clean up HTML resources
     if (kIsWeb) {
       removeHtmlImageTapCallback(_viewType);
@@ -622,14 +674,18 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb && _loadError && _htmlError) {
-      return _buildFlutterErrorWidget();
+    if (kDebugMode) {
+      print('Building CustomNetworkImage. LoadError: $_loadError, HtmlError: $_htmlError, LoadingState: $_loadingState');
     }
     
     Widget imageWidget;
     
-    // If we're on web and already know the image will fail, go straight to HTML
-    if (kIsWeb && _loadError) {
+    // Check if we should show Flutter error widget (both Flutter and HTML failed)
+    if (kIsWeb && _loadError && _htmlError) {
+      imageWidget = _buildFlutterErrorWidget();
+    }
+    // If we're on web and Flutter failed but HTML hasn't been tried yet or is in progress
+    else if (kIsWeb && _loadError) {
       imageWidget = _buildHtmlImageView();
     } 
     // If we're still loading and have a custom loading builder, show loading state
@@ -680,16 +736,120 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       imageWidget = _buildHoverImageWidget(imageWidget);
     }
     
-    // Wrap with GestureDetector only if we have an onTap and not using HTML fallback
-    // (HTML fallback has its own tap handling)
+    // Apply context menu support and gesture handling to ALL widgets
+    return _buildWithContextMenuSupport(imageWidget);
+  }
+
+  /// Build widget with context menu support
+  Widget _buildWithContextMenuSupport(Widget imageWidget) {
+    Widget wrappedWidget = imageWidget;
+    
+    // Add tap gesture handling if needed (but not for HTML fallback which has its own handling)
     if (widget.onTap != null && !(kIsWeb && _loadError)) {
-      return GestureDetector(
+      wrappedWidget = GestureDetector(
         onTap: widget.onTap,
-        child: imageWidget,
+        child: wrappedWidget,
       );
     }
     
-    return imageWidget;
+    // Add context menu support if enabled (web only)
+    if (widget.enableContextMenu && kIsWeb) {
+      wrappedWidget = _buildContextMenuWrapper(wrappedWidget);
+    }
+    
+    return wrappedWidget;
+  }
+  
+  /// Build context menu wrapper with right-click detection
+  Widget _buildContextMenuWrapper(Widget child) {
+    if (kDebugMode) {
+      print('Building context menu wrapper. Load error: $_loadError, HTML error: $_htmlError');
+    }
+    
+    return DisableWebContextMenu(
+      child: GestureDetector(
+        onSecondaryTapDown: (details) {
+          if (kDebugMode) {
+            print('Right-click detected at: ${details.globalPosition}');
+          }
+          _showContextMenuAt(details.globalPosition);
+        },
+        child: child,
+      ),
+    );
+  }
+  
+  /// Show context menu at the specified global position
+  void _showContextMenuAt(Offset globalPosition) {
+    if (kDebugMode) {
+      print('_showContextMenuAt called. Mounted: $mounted, Position: $globalPosition');
+      print('Image data available: ${_imageData != null}');
+      print('Custom items: ${widget.customContextMenuItems?.length ?? 'null'}');
+    }
+    
+    if (!mounted) {
+      if (kDebugMode) print('Widget not mounted, returning');
+      return;
+    }
+    
+    // Remove any existing context menu
+    _removeContextMenu();
+    
+    // Get context menu items (use custom or default)
+    final items = widget.customContextMenuItems ?? ImageContextMenu.defaultItems;
+    
+    if (kDebugMode) {
+      print('Using ${items.length} context menu items');
+    }
+    
+    // Create the overlay entry
+    _contextMenuOverlay = OverlayEntry(
+      builder: (context) {
+        if (kDebugMode) {
+          print('Building ImageContextMenu overlay at position: $globalPosition');
+        }
+        return ImageContextMenu(
+          position: globalPosition,
+          items: items,
+          imageUrl: widget.url,
+          imageData: _imageData,
+          backgroundColor: widget.contextMenuBackgroundColor,
+          textColor: widget.contextMenuTextColor,
+          elevation: widget.contextMenuElevation,
+          borderRadius: widget.contextMenuBorderRadius,
+          padding: widget.contextMenuPadding,
+          onDismiss: _removeContextMenu,
+          onAction: (action) {
+            // Call the callback if provided
+            if (widget.onContextMenuAction != null) {
+              widget.onContextMenuAction!(action);
+            }
+          },
+        );
+      },
+    );
+    
+    if (kDebugMode) {
+      print('Inserting overlay into Overlay.of(context)');
+    }
+    
+    // Insert the overlay
+    try {
+      Overlay.of(context).insert(_contextMenuOverlay!);
+      if (kDebugMode) {
+        print('Overlay inserted successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to insert overlay: $e');
+      }
+    }
+  }
+  
+  /// Remove the context menu
+  void _removeContextMenu() {
+    _contextMenuOverlay?.remove();
+    _contextMenuOverlay = null;
   }
 
   // CUSTOM LOADING WIDGET - Alternative to buggy Flutter loadingBuilder

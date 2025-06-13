@@ -2,7 +2,7 @@
 
 [![pub package](https://img.shields.io/pub/v/flutter_cors_image.svg)](https://pub.dev/packages/flutter_cors_image)
 
-A Flutter package that provides advanced image loading solutions for handling CORS issues, with modern hover icons, clipboard functionality, and image data access.
+A Flutter package that provides advanced image loading solutions for handling CORS issues, with modern hover icons, clipboard functionality, right-click context menus, and image data access.
 
 ## Features
 
@@ -15,6 +15,8 @@ This approach follows this strategy:
 2. If that fails on web platforms, automatically fall back to using an HTML img tag
 3. On native platforms, fall back to using `ExtendedImage` for additional compatibility
 
+**New in v0.3.3**: Right-click context menu with native browser-like functionality for web platforms.
+
 **New in v0.3.0**: Hover icons with customizable positioning, image data callbacks, and advanced clipboard/download functionality.
 
 **New in v0.2.0**: Widget-based error handling with customizable error, reload, and open URL widgets. HTML errors now callback to Flutter for consistent UI across platforms.
@@ -25,7 +27,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_cors_image: ^0.3.0
+  flutter_cors_image: ^0.3.3
 ```
 
 ## Usage
@@ -34,6 +36,71 @@ Import the package:
 
 ```dart
 import 'package:flutter_cors_image/flutter_cors_image.dart';
+```
+
+### Using Right-Click Context Menu (v0.3.3+):
+
+```dart
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  width: 300,
+  height: 200,
+  fit: BoxFit.cover,
+  
+  // ✅ NEW v0.3.3: Right-click context menu (web only)
+  enableContextMenu: true,
+  
+  // ✅ Handle context menu actions
+  onContextMenuAction: (action) {
+    print('Context menu action: $action');
+    // Actions: copyImage, saveImage, openImageInNewTab, copyImageUrl, custom
+  },
+  
+  // ✅ Custom context menu styling
+  contextMenuBackgroundColor: Colors.grey[800],
+  contextMenuTextColor: Colors.white,
+  contextMenuElevation: 8.0,
+  contextMenuBorderRadius: BorderRadius.circular(8),
+)
+```
+
+### Custom Context Menu Items (v0.3.3+):
+
+```dart
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  enableContextMenu: true,
+  
+  // ✅ NEW: Custom menu items with icons and actions
+  customContextMenuItems: [
+    ContextMenuItem(
+      title: 'Download Image',
+      icon: Icons.download,
+      action: ContextMenuAction.saveImage,
+    ),
+    ContextMenuItem(
+      title: 'Copy to Clipboard',
+      icon: Icons.copy,
+      action: ContextMenuAction.copyImage,
+    ),
+    ContextMenuItem(
+      title: 'Share Image',
+      icon: Icons.share,
+      action: ContextMenuAction.custom,
+      onTap: () {
+        // Custom share functionality
+        print('Share image action!');
+      },
+    ),
+  ],
+  
+  // ✅ Custom styling
+  contextMenuBackgroundColor: Colors.grey[800],
+  contextMenuTextColor: Colors.white,
+  contextMenuElevation: 12.0,
+  contextMenuBorderRadius: BorderRadius.circular(12),
+  contextMenuPadding: EdgeInsets.all(8),
+)
 ```
 
 ### Using CustomNetworkImage with Hover Icons (v0.3.0+):
@@ -45,7 +112,7 @@ CustomNetworkImage(
   height: 200,
   fit: BoxFit.cover,
   
-  // ✅ NEW v0.3.0: Hover icons for quick actions
+  // ✅ v0.3.0: Hover icons for quick actions
   downloadIcon: Icon(Icons.download, color: Colors.white, size: 20),
   copyIcon: Icon(Icons.copy, color: Colors.white, size: 20),
   hoverIconPosition: HoverIconPosition.topRight,
@@ -53,15 +120,19 @@ CustomNetworkImage(
   hoverIconSpacing: 8.0,
   hoverIconPadding: EdgeInsets.all(8),
   
-  // ✅ NEW v0.3.0: Get image data when loaded
+  // ✅ v0.3.3: Combine with context menu
+  enableContextMenu: true,
+  
+  // ✅ v0.3.0: Get image data when loaded
   onImageLoaded: (ImageDataInfo imageData) {
     print('Image ready! Size: ${imageData.width}x${imageData.height}');
     // imageData.imageBytes contains raw PNG data for copying/saving
   },
   
-  // ✅ NEW v0.3.0: Custom action callbacks
+  // ✅ Custom action callbacks
   onDownloadTap: () => print('Custom download action!'),
   onCopyTap: () => print('Custom copy action!'),
+  onContextMenuAction: (action) => print('Context menu: $action'),
 )
 ```
 
@@ -327,6 +398,89 @@ CustomNetworkImage(
 )
 ```
 
+## Right-Click Context Menu (v0.3.3+)
+
+### Available Context Menu Actions
+
+```dart
+enum ContextMenuAction {
+  copyImage,           // Copy image to system clipboard
+  saveImage,           // Save image with file picker dialog
+  openImageInNewTab,   // Open image URL in new browser tab
+  copyImageUrl,        // Copy image URL to clipboard
+  custom,              // Custom action with onTap callback
+}
+```
+
+### Context Menu Customization
+
+```dart
+CustomNetworkImage(
+  url: imageUrl,
+  enableContextMenu: true,
+  
+  // Custom menu items
+  customContextMenuItems: [
+    ContextMenuItem(
+      title: 'Download HD',
+      icon: Icons.hd,
+      action: ContextMenuAction.custom,
+      onTap: () => downloadHDVersion(),
+    ),
+    ContextMenuItem(
+      title: 'Set as Wallpaper',
+      icon: Icons.wallpaper,
+      action: ContextMenuAction.custom,
+      onTap: () => setAsWallpaper(),
+    ),
+  ],
+  
+  // Styling options
+  contextMenuBackgroundColor: Colors.black87,
+  contextMenuTextColor: Colors.white,
+  contextMenuElevation: 16.0,
+  contextMenuBorderRadius: BorderRadius.circular(12),
+  contextMenuPadding: EdgeInsets.symmetric(vertical: 8),
+  
+  // Action handler
+  onContextMenuAction: (action) {
+    switch (action) {
+      case ContextMenuAction.copyImage:
+        // Image automatically copied to clipboard
+        showSnackBar('Image copied to clipboard!');
+        break;
+      case ContextMenuAction.saveImage:
+        // Save dialog automatically shown
+        showSnackBar('Save dialog opened');
+        break;
+      // ... handle other actions
+    }
+  },
+)
+```
+
+### Context Menu Features
+
+| Feature | Description |
+|---------|-------------|
+| **Smart Positioning** | Automatically adjusts position to stay on screen |
+| **Browser Integration** | Uses File System Access API for native save dialogs |
+| **Toast Notifications** | Shows success/failure feedback for actions |
+| **Clipboard Support** | Copies images and URLs to system clipboard |
+| **Custom Actions** | Add your own menu items with custom callbacks |
+| **Styling Control** | Full control over colors, elevation, and spacing |
+| **State Awareness** | Works during loading, loaded, error, and HTML fallback states |
+
+### Platform Support
+
+| Platform | Context Menu | Save Dialog | Clipboard Copy |
+|----------|--------------|-------------|----------------|
+| **Web** | ✅ Full support | ✅ File System Access API | ✅ Clipboard API |
+| **Desktop** | ⚠️ Limited | ⚠️ Downloads folder | ⚠️ Basic support |
+| **Mobile** | ❌ Not applicable | ❌ Not applicable | ❌ Not applicable |
+
+*Note: Context menus are primarily designed for web platforms where right-click functionality is standard.*
+
 ## Migration Guide
 
 ### v0.2.x → v0.3.0
@@ -426,6 +580,34 @@ CustomNetworkImage(
   copyIcon: Icon(Icons.copy, color: Colors.white),
   onImageLoaded: (imageData) {
     // Access to image data for copy/download operations
+  },
+)
+```
+
+### v0.3.2 → v0.3.3
+
+#### **No Breaking Changes**
+All v0.3.2 code continues to work unchanged. Context menu is an optional feature.
+
+#### **Adding Context Menu**
+```dart
+// Existing code (still works)
+CustomNetworkImage(
+  url: imageUrl,
+  downloadIcon: Icon(Icons.download),
+  copyIcon: Icon(Icons.copy),
+)
+
+// Enhanced with context menu
+CustomNetworkImage(
+  url: imageUrl,
+  downloadIcon: Icon(Icons.download),
+  copyIcon: Icon(Icons.copy),
+  
+  // ✅ Add context menu
+  enableContextMenu: true,
+  onContextMenuAction: (action) {
+    print('Context action: $action');
   },
 )
 ```
