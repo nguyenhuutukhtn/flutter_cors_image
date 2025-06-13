@@ -1,5 +1,6 @@
 // Stub implementation for non-web platforms
 import 'custom_network_image.dart';
+import 'types.dart';
 
 /// Stub implementation - this should never be called on non-web platforms
 Future<bool> copyImageToClipboardWeb(ImageDataInfo imageData) async {

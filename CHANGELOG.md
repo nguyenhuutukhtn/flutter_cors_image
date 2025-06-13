@@ -1,5 +1,191 @@
 # Changelog
 
+## 0.3.2 - Controller Feature Release
+
+### 🚀 New Major Features
+
+#### **External Controller System**
+* **NEW**: `CustomNetworkImageController` for external image management and control
+* **NEW**: `controller` parameter in `CustomNetworkImage` for linking external controller
+* **NEW**: External methods for image operations:
+  * `controller.reload()` - Reload image from URL
+  * `controller.downloadImage()` - Download image to device
+  * `controller.copyImageToClipboard()` - Copy image to system clipboard
+  * `controller.getCurrentImageData()` - Get current image data
+  * `controller.waitForLoad()` - Wait for image loading with timeout
+
+#### **Real-time State Management**
+* **NEW**: Live state monitoring with `ChangeNotifier` integration:
+  * `controller.isLoading` - Check if image is currently loading
+  * `controller.isLoaded` - Check if image loaded successfully
+  * `controller.isFailed` - Check if image failed to load
+  * `controller.hasImageData` - Check if image data is available
+  * `controller.loadingProgress` - Get current loading progress
+  * `controller.errorMessage` - Get current error message
+
+#### **Multiple Controller Support**
+* **NEW**: Use separate controllers for different images in same widget tree
+* **NEW**: Independent state management for each image instance
+* **NEW**: External control of multiple images simultaneously
+
+### 🏗️ Architecture Improvements
+
+#### **Code Refactoring & Separation**
+* **NEW**: `lib/src/types.dart` - Shared types and enums for better organization
+* **NEW**: `lib/src/custom_network_image_controller.dart` - Dedicated controller implementation
+* **IMPROVED**: Removed duplicate type definitions across files
+* **IMPROVED**: Better import structure and dependency management
+* **IMPROVED**: Cleaner codebase with separated concerns
+
+#### **Enhanced Library Exports**
+* **NEW**: Export controller and types for external usage
+* **NEW**: Public API access to `CustomNetworkImageController`
+* **NEW**: Access to `ImageLoadingState`, `CustomImageProgress`, `ImageDataInfo`
+* **NEW**: Public access to `ImageClipboardHelper` for manual operations
+
+### 🎮 Usage Examples
+
+#### **Basic Controller Usage**
+```dart
+final controller = CustomNetworkImageController();
+
+// Listen to state changes
+controller.addListener(() {
+  print('Loading state: ${controller.loadingState}');
+  if (controller.isLoaded) {
+    print('Image ready: ${controller.imageData?.width}x${controller.imageData?.height}');
+  }
+});
+
+// Use with widget
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  controller: controller,
+  downloadIcon: Icon(Icons.download),
+  copyIcon: Icon(Icons.copy),
+)
+
+// External control
+await controller.downloadImage();
+await controller.copyImageToClipboard();
+controller.reload();
+```
+
+#### **Multiple Controllers**
+```dart
+class MultiImageWidget extends StatefulWidget {
+  @override
+  _MultiImageWidgetState createState() => _MultiImageWidgetState();
+}
+
+class _MultiImageWidgetState extends State<MultiImageWidget> {
+  late CustomNetworkImageController controller1;
+  late CustomNetworkImageController controller2;
+  
+  @override
+  void initState() {
+    super.initState();
+    controller1 = CustomNetworkImageController();
+    controller2 = CustomNetworkImageController();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            children: [
+              CustomNetworkImage(
+                url: 'https://example.com/image1.jpg',
+                controller: controller1,
+              ),
+              ElevatedButton(
+                onPressed: () => controller1.reload(),
+                child: Text('Reload Image 1'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Column(
+            children: [
+              CustomNetworkImage(
+                url: 'https://example.com/image2.jpg',
+                controller: controller2,
+              ),
+              ElevatedButton(
+                onPressed: () => controller2.downloadImage(),
+                child: Text('Download Image 2'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  
+  @override
+  void dispose() {
+    controller1.dispose();
+    controller2.dispose();
+    super.dispose();
+  }
+}
+```
+
+### 🔧 Technical Implementation
+
+#### **Controller State Management**
+```dart
+class CustomNetworkImageController extends ChangeNotifier {
+  // State properties
+  ImageLoadingState get loadingState;
+  CustomImageProgress? get loadingProgress;
+  ImageDataInfo? get imageData;
+  String? get errorMessage;
+  
+  // Convenience getters
+  bool get isLoading;
+  bool get isLoaded;
+  bool get isFailed;
+  bool get hasImageData;
+  
+  // Control methods
+  void reload();
+  Future<bool> downloadImage();
+  Future<bool> copyImageToClipboard();
+  Future<ImageDataInfo> waitForLoad({Duration timeout});
+}
+```
+
+#### **Integration with Existing Features**
+* **Full Compatibility**: Controller works alongside all existing hover icons and callbacks
+* **State Sync**: Widget state automatically syncs with controller state
+* **Error Handling**: Controller captures and exposes all error states
+* **Progress Tracking**: Real-time loading progress available through controller
+
+### 📱 Enhanced Example App
+* **NEW**: Comprehensive controller demonstration in `example/simple_usage_example.dart`
+* **NEW**: Live status panel showing controller state in real-time
+* **NEW**: External action buttons for controller methods
+* **NEW**: Multiple controller examples with independent control
+* **NEW**: Status tracking and error handling demonstrations
+
+### 🔄 Backward Compatibility
+* **100% Backward Compatible**: All existing code continues to work unchanged
+* **Optional Enhancement**: Controller is optional - existing callback/hover icon patterns still work
+* **Progressive Adoption**: Add controller gradually to existing implementations
+* **No Breaking Changes**: All existing parameters and functionality preserved
+
+### 🛠️ Developer Experience
+* **Type Safety**: Full TypeScript-like type safety with controller state
+* **IntelliSense**: Rich IDE support for controller methods and properties
+* **Documentation**: Comprehensive inline documentation for all new features
+* **Examples**: Multiple usage patterns and best practices demonstrated
+
+---
+
 ## 0.3.1 - Clipboard Fix Release
 
 ### 🐛 Bug Fixes

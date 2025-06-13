@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'custom_network_image.dart';
 
 // Conditional import for web-specific functionality
+import 'types.dart';
 import 'web_clipboard_helper.dart' if (dart.library.io) 'stub_clipboard_helper.dart';
 
 /// Helper class for copying images to clipboard

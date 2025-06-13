@@ -5,59 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:extended_image/extended_image.dart';
 import 'web_image_loader.dart' if (dart.library.io) 'stub_image_loader.dart';
 import 'image_clipboard_helper.dart';
-
-/// Custom loading state for tracking image loading progress
-enum ImageLoadingState {
-  initial,
-  loading,
-  loaded,
-  failed,
-}
-
-/// Position for hover icons
-enum HoverIconPosition {
-  topLeft,
-  topRight,
-  bottomLeft,
-  bottomRight,
-  topCenter,
-  bottomCenter,
-}
-
-/// Layout direction for hover icons
-enum HoverIconLayout {
-  auto,    // Automatic based on position (vertical for corners, horizontal for center)
-  row,     // Always horizontal
-  column,  // Always vertical
-}
-
-/// Custom loading progress information
-class CustomImageProgress {
-  final int cumulativeBytesLoaded;
-  final int? expectedTotalBytes;
-  final double? progress;
-
-  const CustomImageProgress({
-    required this.cumulativeBytesLoaded,
-    this.expectedTotalBytes,
-    this.progress,
-  });
-}
-
-/// Image data callback information
-class ImageDataInfo {
-  final Uint8List imageBytes;
-  final int width;
-  final int height;
-  final String url;
-
-  const ImageDataInfo({
-    required this.imageBytes,
-    required this.width,
-    required this.height,
-    required this.url,
-  });
-}
+import 'types.dart';
+import 'custom_network_image_controller.dart';
 
 /// A network image widget that handles problematic images by falling back to HTML img tag
 /// when the standard Flutter image loader fails.
@@ -147,6 +96,10 @@ class CustomNetworkImage extends StatefulWidget {
   /// Background color for the error widget. Defaults to grey if not specified.
   final Color? errorBackgroundColor;
   
+  /// NEW: Controller for external management
+  /// Provides methods to reload, download, copy image and get state externally
+  final CustomNetworkImageController? controller;
+  
   /// DEPRECATED: Use errorWidget instead
   /// Custom error message text. If null, only icon will be shown.
   @Deprecated('Use errorWidget parameter instead. This will be removed in v1.0.0')
@@ -172,6 +125,13 @@ class CustomNetworkImage extends StatefulWidget {
   /// 
   /// Use [customLoadingBuilder] instead of loadingBuilder for reliable loading progress tracking.
   /// Use [onImageLoaded] to receive image data when loading is successful for copy functionality.
+  /// 
+  /// NEW: Use [controller] for external control of the image widget:
+  /// - controller.reload() - reload the image
+  /// - controller.downloadImage() - download the image
+  /// - controller.copyImageToClipboard() - copy image to clipboard
+  /// - controller.getCurrentImageData() - get current image data
+  /// - Listen to controller for state changes
   /// 
   /// NEW: Hover icons for quick actions (web/desktop):
   /// - [downloadIcon]: Custom icon for download action
@@ -212,6 +172,8 @@ class CustomNetworkImage extends StatefulWidget {
     this.errorWidget,
     this.reloadWidget,
     this.openUrlWidget,
+    // NEW: Controller parameter
+    this.controller,
     // DEPRECATED string parameters (for backward compatibility)
     @Deprecated('Use errorWidget parameter instead. This will be removed in v1.0.0')
     this.errorText,
@@ -270,6 +232,17 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       duration: const Duration(milliseconds: 16), // ~60fps
     );
     
+    // NEW: Setup controller if provided
+    if (widget.controller != null) {
+      widget.controller!.setCallbacks(
+        onReload: _handleControllerReload,
+        onDownload: _handleControllerDownload,
+        onCopy: _handleControllerCopy,
+      );
+      // Initialize controller state
+      widget.controller!.updateLoadingState(_loadingState);
+    }
+    
     // Register the view factory early if on web and likely to need it
     if (kIsWeb) {
       // Register the tap callback if we have one
@@ -288,6 +261,12 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             _htmlError = true;
             _waitingForHtml = false;
           });
+          
+          // Update controller state
+          if (widget.controller != null) {
+            widget.controller!.updateLoadingState(ImageLoadingState.failed);
+            widget.controller!.updateError('HTML fallback also failed');
+          }
         }
       });
       
@@ -480,6 +459,14 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       _imageData = null; // Reset image data
     });
     
+    // Update controller state
+    if (widget.controller != null) {
+      widget.controller!.updateLoadingState(_loadingState);
+      widget.controller!.updateLoadingProgress(_loadingProgress);
+      widget.controller!.updateImageData(null);
+      widget.controller!.updateError(null);
+    }
+    
     // Create image provider and stream
     final imageProvider = NetworkImage(widget.url, headers: widget.headers);
     _imageStream = imageProvider.resolve(ImageConfiguration.empty);
@@ -496,13 +483,19 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             _loadError = false;
           });
           
+          // Update controller state
+          if (widget.controller != null) {
+            widget.controller!.updateLoadingState(_loadingState);
+            widget.controller!.updateLoadingProgress(null);
+          }
+          
           // Stop animation controller if not needed
           if (_transformSyncController.isAnimating) {
             _transformSyncController.stop();
           }
           
           // NEW: Extract image data for copy functionality
-          if (widget.onImageLoaded != null) {
+          if (widget.onImageLoaded != null || widget.controller != null) {
             try {
               // Get the image bytes
               final Uint8List? imageBytes = await _getImageBytes(imageProvider);
@@ -516,10 +509,22 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                 
                 // Store image data and call callback
                 _imageData = imageData;
-                widget.onImageLoaded!(imageData);
+                
+                // Update controller
+                if (widget.controller != null) {
+                  widget.controller!.updateImageData(imageData);
+                }
+                
+                // Call callback if provided
+                if (widget.onImageLoaded != null) {
+                  widget.onImageLoaded!(imageData);
+                }
               }
             } catch (e) {
               // Error extracting image data
+              if (widget.controller != null) {
+                widget.controller!.updateError('Failed to extract image data: $e');
+              }
             }
           }
         }
@@ -535,6 +540,14 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             _imageData = null; // Clear image data on error
           });
           
+          // Update controller state
+          if (widget.controller != null) {
+            widget.controller!.updateLoadingState(_loadingState);
+            widget.controller!.updateLoadingProgress(null);
+            widget.controller!.updateImageData(null);
+            widget.controller!.updateError('Failed to load image: $error');
+          }
+          
           // Start animation controller for frequent updates
           if (widget.transformationController != null && !_transformSyncController.isAnimating) {
             _transformSyncController.repeat();
@@ -548,13 +561,20 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
               ? event.cumulativeBytesLoaded / event.expectedTotalBytes! 
               : null;
           
+          final loadingProgress = CustomImageProgress(
+            cumulativeBytesLoaded: event.cumulativeBytesLoaded,
+            expectedTotalBytes: event.expectedTotalBytes,
+            progress: progress,
+          );
+          
           setState(() {
-            _loadingProgress = CustomImageProgress(
-              cumulativeBytesLoaded: event.cumulativeBytesLoaded,
-              expectedTotalBytes: event.expectedTotalBytes,
-              progress: progress,
-            );
+            _loadingProgress = loadingProgress;
           });
+          
+          // Update controller state
+          if (widget.controller != null) {
+            widget.controller!.updateLoadingProgress(loadingProgress);
+          }
         }
       },
     );
@@ -1134,6 +1154,27 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       await ImageClipboardHelper.copyImageToClipboard(_imageData!);
     } catch (e) {
       // Error copying image
+    }
+  }
+
+  // NEW: Controller callback handlers
+  void _handleControllerReload() {
+    _preloadImage();
+  }
+
+  void _handleControllerDownload() {
+    if (widget.onDownloadTap != null) {
+      widget.onDownloadTap!();
+    } else {
+      _handleDownloadTap();
+    }
+  }
+
+  void _handleControllerCopy() {
+    if (widget.onCopyTap != null) {
+      widget.onCopyTap!();
+    } else {
+      _handleCopyTap();
     }
   }
 } 
