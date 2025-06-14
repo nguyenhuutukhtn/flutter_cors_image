@@ -6,49 +6,78 @@ import 'types.dart';
 
 /// Copy image to clipboard on web for pasting in other applications
 Future<bool> copyImageToClipboardWeb(ImageDataInfo imageData) async {
+  print('🔍 PROD DEBUG: copyImageToClipboardWeb called');
+  print('🔍 PROD DEBUG: imageData: ${imageData.imageBytes.length} bytes, ${imageData.width}x${imageData.height}');
+  
   try {
     // Method 1: Use modern Clipboard API with ClipboardItem
-    if (_supportsClipboardAPI()) {
+    final supportsClipboard = _supportsClipboardAPI();
+    print('🔍 PROD DEBUG: Browser supports Clipboard API: $supportsClipboard');
+    
+    if (supportsClipboard) {
+      print('🔍 PROD DEBUG: Trying modern Clipboard API method');
       final success = await _copyWithClipboardAPI(imageData);
+      print('🔍 PROD DEBUG: Clipboard API result: $success');
       if (success) return true;
     }
     
     // Method 2: Try alternative canvas-based approach
+    print('🔍 PROD DEBUG: Trying canvas-based method');
     final canvasSuccess = await _copyWithCanvasMethod(imageData);
+    print('🔍 PROD DEBUG: Canvas method result: $canvasSuccess');
     if (canvasSuccess) return true;
     
     // Method 3: Fallback for older browsers
-    return await _copyWithFallback(imageData);
+    print('🔍 PROD DEBUG: Trying fallback method');
+    final fallbackResult = await _copyWithFallback(imageData);
+    print('🔍 PROD DEBUG: Fallback method result: $fallbackResult');
+    return fallbackResult;
     
   } catch (e) {
+    print('❌ PROD DEBUG: copyImageToClipboardWeb exception: $e');
+    print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
     return false;
   }
 }
 
 /// Download image as file on web (separate from clipboard copying)
 Future<bool> downloadImageWeb(ImageDataInfo imageData) async {
+  print('🔍 PROD DEBUG: downloadImageWeb called');
+  print('🔍 PROD DEBUG: imageData: ${imageData.imageBytes.length} bytes, ${imageData.width}x${imageData.height}');
+  
   try {
     // Create a blob from the image bytes
+    print('🔍 PROD DEBUG: Creating blob from image bytes');
     final blob = html.Blob([imageData.imageBytes], 'image/png');
+    print('🔍 PROD DEBUG: Blob created: ${blob.size} bytes, type: ${blob.type}');
     
     // Create a URL for the blob
+    print('🔍 PROD DEBUG: Creating object URL from blob');
     final url = html.Url.createObjectUrlFromBlob(blob);
+    print('🔍 PROD DEBUG: Object URL created: $url');
     
     // Create a download link
+    final fileName = 'image_${DateTime.now().millisecondsSinceEpoch}.png';
+    print('🔍 PROD DEBUG: Creating download anchor with filename: $fileName');
     final anchor = html.AnchorElement(href: url);
-    anchor.download = 'image_${DateTime.now().millisecondsSinceEpoch}.png';
+    anchor.download = fileName;
     
     // Append to body, click, and remove
+    print('🔍 PROD DEBUG: Appending anchor to body and triggering click');
     html.document.body!.append(anchor);
     anchor.click();
     anchor.remove();
     
     // Clean up the URL
+    print('🔍 PROD DEBUG: Cleaning up object URL');
     html.Url.revokeObjectUrl(url);
     
+    print('✅ PROD DEBUG: Download completed successfully');
     return true;
     
   } catch (e) {
+    print('❌ PROD DEBUG: downloadImageWeb exception: $e');
+    print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
     return false;
   }
 }
@@ -66,12 +95,18 @@ bool _supportsClipboardAPI() {
 
 /// Copy using modern Clipboard API (works in most modern browsers)
 Future<bool> _copyWithClipboardAPI(ImageDataInfo imageData) async {
+  print('🔍 PROD DEBUG: _copyWithClipboardAPI called');
+  
   try {
     // Create blob from image bytes with explicit MIME type
+    print('🔍 PROD DEBUG: Creating blob for clipboard API');
     final blob = html.Blob([imageData.imageBytes], 'image/png');
+    print('🔍 PROD DEBUG: Blob created: ${blob.size} bytes, type: ${blob.type}');
     
     // Simple JavaScript approach that's more reliable
+    print('🔍 PROD DEBUG: Calling _simpleClipboardCopy');
     final success = await _simpleClipboardCopy(blob);
+    print('🔍 PROD DEBUG: _simpleClipboardCopy result: $success');
     
     if (success) {
       return true;
@@ -80,43 +115,57 @@ Future<bool> _copyWithClipboardAPI(ImageDataInfo imageData) async {
     }
     
   } catch (e) {
+    print('❌ PROD DEBUG: _copyWithClipboardAPI exception: $e');
+    print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
     return false;
   }
 }
 
 /// Simple clipboard copy using direct JavaScript
 Future<bool> _simpleClipboardCopy(html.Blob blob) async {
+  print('🔍 PROD DEBUG: _simpleClipboardCopy called with blob: ${blob.size} bytes');
+  
   try {
     final completer = Completer<bool>();
     
     // Use a simpler approach that's less prone to errors
+    print('🔍 PROD DEBUG: Creating JavaScript function for clipboard copy');
     final script = html.document.createElement('script');
     script.text = '''
       window.copyImageToClipboard = async function(blob) {
         try {
+          console.log('🔍 JS DEBUG: copyImageToClipboard called with blob:', blob.size, 'bytes');
           const clipboardItem = new ClipboardItem({ 'image/png': blob });
+          console.log('🔍 JS DEBUG: ClipboardItem created');
           await navigator.clipboard.write([clipboardItem]);
+          console.log('✅ JS DEBUG: Clipboard write successful');
           return true;
         } catch (e) {
-          console.error('Clipboard copy failed:', e);
+          console.error('❌ JS DEBUG: Clipboard copy failed:', e);
           return false;
         }
       };
     ''';
     
     html.document.head!.append(script);
+    print('🔍 PROD DEBUG: JavaScript function injected');
     
     // Call the function
+    print('🔍 PROD DEBUG: Converting blob to JS object');
     final jsBlob = js.JsObject.fromBrowserObject(blob);
+    print('🔍 PROD DEBUG: Calling copyImageToClipboard JavaScript function');
     final promise = js.context.callMethod('copyImageToClipboard', [jsBlob]);
+    print('🔍 PROD DEBUG: JavaScript function called, promise: ${promise != null}');
     
     // Handle the promise
     final thenCallback = js.allowInterop((result) {
+      print('🔍 PROD DEBUG: JavaScript promise resolved with result: $result');
       completer.complete(result == true);
       script.remove(); // Clean up
     });
     
     final catchCallback = js.allowInterop((error) {
+      print('❌ PROD DEBUG: JavaScript promise rejected with error: $error');
       completer.complete(false);
       script.remove(); // Clean up
     });
@@ -125,13 +174,18 @@ Future<bool> _simpleClipboardCopy(html.Blob blob) async {
       promise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
     } else {
       // Promise not supported
+      print('❌ PROD DEBUG: Promise not supported by browser');
       completer.complete(false);
       script.remove();
     }
     
-    return await completer.future;
+    final result = await completer.future;
+    print('🔍 PROD DEBUG: _simpleClipboardCopy final result: $result');
+    return result;
     
   } catch (e) {
+    print('❌ PROD DEBUG: _simpleClipboardCopy exception: $e');
+    print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
     return false;
   }
 }

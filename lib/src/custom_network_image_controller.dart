@@ -62,8 +62,17 @@ class CustomNetworkImageController extends ChangeNotifier {
   }
 
   void updateImageData(ImageDataInfo? data) {
+    print('🔍 PROD DEBUG: updateImageData called');
+    print('🔍 PROD DEBUG: _isDisposed: $_isDisposed');
+    print('🔍 PROD DEBUG: data is null: ${data == null}');
+    if (data != null) {
+      print('🔍 PROD DEBUG: data: ${data.imageBytes.length} bytes, ${data.width}x${data.height}, url: ${data.url}');
+    }
+    
     if (_isDisposed) return;
     _imageData = data;
+    
+    print('🔍 PROD DEBUG: _imageData updated, notifying listeners');
     notifyListeners();
   }
 
@@ -96,24 +105,36 @@ class CustomNetworkImageController extends ChangeNotifier {
   /// Returns true if download was successful, false otherwise
   /// Throws an exception if no image data is available
   Future<bool> downloadImage() async {
+    print('🔍 PROD DEBUG: downloadImage called');
+    print('🔍 PROD DEBUG: _isDisposed: $_isDisposed');
+    print('🔍 PROD DEBUG: _imageData is null: ${_imageData == null}');
+    print('🔍 PROD DEBUG: hasImageData: $hasImageData');
+    print('🔍 PROD DEBUG: loadingState: $_loadingState');
+    
     if (_isDisposed) return false;
     
     if (_imageData == null) {
+      print('❌ PROD DEBUG: No image data available for download');
       throw StateError('No image data available for download. Make sure the image is loaded first.');
     }
 
+    print('🔍 PROD DEBUG: Image data available: ${_imageData!.imageBytes.length} bytes, ${_imageData!.width}x${_imageData!.height}');
+
     if (_onDownload != null) {
+      print('🔍 PROD DEBUG: Using custom download callback');
       _onDownload!();
       return true; // Assume success if custom callback is provided
     }
 
     // Default download behavior
     try {
-      return await ImageClipboardHelper.downloadImage(_imageData!);
+      print('🔍 PROD DEBUG: Using default download behavior');
+      final result = await ImageClipboardHelper.downloadImage(_imageData!);
+      print('🔍 PROD DEBUG: Download result: $result');
+      return result;
     } catch (e) {
-      if (kDebugMode) {
-        print('Download error: $e');
-      }
+      print('❌ PROD DEBUG: Download error: $e');
+      print('❌ PROD DEBUG: Download stack trace: ${StackTrace.current}');
       return false;
     }
   }
@@ -123,24 +144,36 @@ class CustomNetworkImageController extends ChangeNotifier {
   /// Returns true if copy was successful, false otherwise
   /// Throws an exception if no image data is available
   Future<bool> copyImageToClipboard() async {
+    print('🔍 PROD DEBUG: copyImageToClipboard called');
+    print('🔍 PROD DEBUG: _isDisposed: $_isDisposed');
+    print('🔍 PROD DEBUG: _imageData is null: ${_imageData == null}');
+    print('🔍 PROD DEBUG: hasImageData: $hasImageData');
+    print('🔍 PROD DEBUG: loadingState: $_loadingState');
+    
     if (_isDisposed) return false;
     
     if (_imageData == null) {
+      print('❌ PROD DEBUG: No image data available for copying');
       throw StateError('No image data available for copying. Make sure the image is loaded first.');
     }
 
+    print('🔍 PROD DEBUG: Image data available: ${_imageData!.imageBytes.length} bytes, ${_imageData!.width}x${_imageData!.height}');
+
     if (_onCopy != null) {
+      print('🔍 PROD DEBUG: Using custom copy callback');
       _onCopy!();
       return true; // Assume success if custom callback is provided
     }
 
     // Default copy behavior
     try {
-      return await ImageClipboardHelper.copyImageToClipboard(_imageData!);
+      print('🔍 PROD DEBUG: Using default copy behavior');
+      final result = await ImageClipboardHelper.copyImageToClipboard(_imageData!);
+      print('🔍 PROD DEBUG: Copy result: $result');
+      return result;
     } catch (e) {
-      if (kDebugMode) {
-        print('Copy error: $e');
-      }
+      print('❌ PROD DEBUG: Copy error: $e');
+      print('❌ PROD DEBUG: Copy stack trace: ${StackTrace.current}');
       return false;
     }
   }
