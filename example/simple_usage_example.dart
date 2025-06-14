@@ -4,6 +4,7 @@ import 'package:flutter_cors_image/flutter_cors_image.dart';
 import 'package:flutter_cors_image/src/image_clipboard_helper.dart';
 import 'package:flutter_cors_image/src/custom_network_image_controller.dart';
 import 'package:flutter_cors_image/src/types.dart';
+import 'dart:typed_data';
 
 
 
@@ -88,7 +89,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Controller + Hover Icons Demo'),
+        title: const Text('Heavy Image Copy & Clipboard Demo'),
         backgroundColor: Colors.blue,
       ),
       body: SingleChildScrollView(
@@ -96,7 +97,17 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // NEW: Controller Status Panel
+            // NEW: Heavy Image Info Panel
+            _buildHeavyImageInfoPanel(),
+            
+            const SizedBox(height: 20),
+            
+            // NEW: Copy Bytes Example
+            _buildCopyBytesExample(),
+            
+            const SizedBox(height: 20),
+            
+            // Controller Status Panel
             _buildControllerStatusPanel(),
             
             const SizedBox(height: 20),
@@ -106,8 +117,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
             
             const SizedBox(height: 20),
             
-            // Main Image with Controller
-            _buildMainImageDemo(),
+            // Main Heavy Image Demo
+            _buildHeavyImageDemo(),
             
             const SizedBox(height: 20),
             
@@ -116,8 +127,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
             
             const SizedBox(height: 20),
             
-            // Multiple Controllers Example
-            _buildMultipleControllersExample(),
+            // Multiple Heavy Controllers Example
+            _buildMultipleHeavyControllersExample(),
             
             const SizedBox(height: 20),
             
@@ -127,6 +138,164 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
         ),
       ),
     );
+  }
+  
+  Widget _buildHeavyImageInfoPanel() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('🏋️ Heavy Image Testing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            
+            const Text('This demo uses high-resolution images (4K-8K) that are several MBs each:'),
+            const SizedBox(height: 8),
+            const Text('• Main Image: 4K (3840x2160) - ~3-5 MB', style: TextStyle(color: Colors.blue)),
+            const Text('• Grid Images: 4K (3840x2160) - ~2-4 MB each', style: TextStyle(color: Colors.green)),
+            const Text('• Multiple Controllers: 6K (6000x4000) - ~5-8 MB each', style: TextStyle(color: Colors.purple)),
+            const SizedBox(height: 8),
+            const Text('💡 This tests clipboard performance with large image data', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('⚠️ Download and copy operations may take a few seconds due to image size', style: TextStyle(color: Colors.orange)),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildCopyBytesExample() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('📋 Copy Bytes Example', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Demonstrates copyImageBytesToClipboard with raw Uint8List data'),
+            const SizedBox(height: 12),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      try {
+                        // Simulate raw image bytes (you would get this from camera, file picker, etc.)
+                        if (_imageData != null) {
+                          final rawBytes = _imageData!.imageBytes;
+                          final width = _imageData!.width;
+                          final height = _imageData!.height;
+                          
+                          print('🔍 DEBUG: Copying raw bytes: ${rawBytes.length} bytes, ${width}x${height}');
+                          
+                          final success = await ImageClipboardHelper.copyImageBytesToClipboard(
+                            rawBytes,
+                            width: width,
+                            height: height,
+                          );
+                          
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(success 
+                                ? '✅ Raw bytes copied! Size: ${(rawBytes.length / 1024 / 1024).toStringAsFixed(1)} MB'
+                                : '❌ Failed to copy raw bytes'),
+                              backgroundColor: success ? Colors.green : Colors.red,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('❌ No image data available. Load an image first.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        print('❌ DEBUG: Copy bytes error: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.content_copy),
+                    label: const Text('Copy Raw Bytes'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      // Simulate creating custom image bytes (e.g., from canvas or image processing)
+                      try {
+                        // Create a simple 2x2 pixel PNG manually (minimal example)
+                        final customBytes = _createSampleImageBytes();
+                        
+                        final success = await ImageClipboardHelper.copyImageBytesToClipboard(
+                          customBytes,
+                          width: 100,
+                          height: 100,
+                        );
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(success 
+                              ? '✅ Custom bytes copied! (100x100px sample)'
+                              : '❌ Failed to copy custom bytes'),
+                            backgroundColor: success ? Colors.green : Colors.red,
+                          ),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.brush),
+                    label: const Text('Copy Custom Bytes'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 8),
+            const Text(
+              'Use copyImageBytesToClipboard() when working with:\n'
+              '• Camera captures • File picker results • Image processing output\n'
+              '• Canvas drawings • Generated images • Screenshot data',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // Helper method to create sample image bytes
+  Uint8List _createSampleImageBytes() {
+    // This is a minimal PNG header + simple image data
+    // In real usage, you'd get bytes from camera, file picker, image processing, etc.
+    final List<int> pngData = [
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+      // This is a simplified example - in reality you'd have proper PNG data
+      // For testing purposes, we'll reuse existing image data if available
+    ];
+    
+    // If we have existing image data, return a portion of it for testing
+    if (_imageData != null) {
+      return _imageData!.imageBytes.sublist(0, 
+        _imageData!.imageBytes.length < 1000 ? _imageData!.imageBytes.length : 1000);
+    }
+    
+    return Uint8List.fromList(pngData);
   }
   
   Widget _buildControllerStatusPanel() {
@@ -269,15 +438,16 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
     );
   }
   
-  Widget _buildMultipleControllersExample() {
+  Widget _buildMultipleHeavyControllersExample() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('🔄 Multiple Controllers Example', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text('Different images with separate controllers', style: TextStyle(color: Colors.grey[600])),
+            const Text('🔄 Multiple Heavy Controllers (6K Images)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Ultra-high resolution images with separate controllers', style: TextStyle(color: Colors.grey[600])),
+            const Text('⚠️ These are 6K (6000x4000) images - ~5-8 MB each', style: TextStyle(color: Colors.red, fontSize: 12)),
             const SizedBox(height: 12),
             
             Row(
@@ -285,21 +455,25 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                 Expanded(
                   child: Column(
                     children: [
-                      const Text('Controller 1', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Heavy Controller 1', style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       AspectRatio(
                         aspectRatio: 1.5,
                         child: CustomNetworkImage(
-                          url: 'https://picsum.photos/400/300?random=7',
+                          url: 'https://picsum.photos/6000/4000?random=ultra1', // 6K image
                           controller: _gridController1,
                           fit: BoxFit.cover,
                           downloadIcon: const Icon(Icons.download, color: Colors.white, size: 12),
                           copyIcon: const Icon(Icons.copy, color: Colors.white, size: 12),
                           hoverIconPosition: HoverIconPosition.topLeft,
                           hoverIconPadding: const EdgeInsets.all(4),
+                          onImageLoaded: (imageData) {
+                            print('🔍 DEBUG: Heavy Controller 1 loaded: ${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB');
+                          },
                         ),
                       ),
                       const SizedBox(height: 8),
+                      const Text('6K (6000x4000)', style: TextStyle(fontSize: 10, color: Colors.grey)),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -327,21 +501,25 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                 Expanded(
                   child: Column(
                     children: [
-                      const Text('Controller 2', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Heavy Controller 2', style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       AspectRatio(
                         aspectRatio: 1.5,
                         child: CustomNetworkImage(
-                          url: 'https://picsum.photos/400/300?random=8',
+                          url: 'https://picsum.photos/6000/4000?random=ultra2', // 6K image
                           controller: _gridController2,
                           fit: BoxFit.cover,
                           downloadIcon: const Icon(Icons.download, color: Colors.white, size: 12),
                           copyIcon: const Icon(Icons.copy, color: Colors.white, size: 12),
                           hoverIconPosition: HoverIconPosition.bottomRight,
                           hoverIconPadding: const EdgeInsets.all(4),
+                          onImageLoaded: (imageData) {
+                            print('🔍 DEBUG: Heavy Controller 2 loaded: ${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB');
+                          },
                         ),
                       ),
                       const SizedBox(height: 8),
+                      const Text('6K (6000x4000)', style: TextStyle(fontSize: 10, color: Colors.grey)),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -465,23 +643,23 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
     );
   }
   
-  Widget _buildMainImageDemo() {
+  Widget _buildHeavyImageDemo() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('🖼️ Main Demo Image with Controller', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text('Hover over the image to see icons in action!', style: TextStyle(color: Colors.grey[600])),
-            Text('• Download icon: Saves PNG file to your computer', style: TextStyle(color: Colors.blue[600], fontSize: 12)),
-            Text('• Copy icon: Copies image to clipboard for pasting (Ctrl+V)', style: TextStyle(color: Colors.green[600], fontSize: 12)),
-            Text('• Controller: External control available via buttons below', style: TextStyle(color: Colors.purple[600], fontSize: 12)),
+            const Text('🖼️ Heavy Image Demo (4K Resolution)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('High-resolution image for testing large file copy/download performance', style: TextStyle(color: Colors.grey[600])),
+            Text('• This image is 4K (3840x2160) and several MBs in size', style: TextStyle(color: Colors.blue[600], fontSize: 12)),
+            Text('• Copy/download operations will take longer due to file size', style: TextStyle(color: Colors.orange[600], fontSize: 12)),
+            Text('• Monitor the debug console for detailed performance info', style: TextStyle(color: Colors.purple[600], fontSize: 12)),
             const SizedBox(height: 12),
             
             Center(
               child: CustomNetworkImage(
-                url: 'https://picsum.photos/400/300?random=main',
+                url: 'https://picsum.photos/3840/2160?random=heavy', // 4K image
                 width: 400,
                 height: 300,
                 fit: BoxFit.cover,
@@ -500,6 +678,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                 
                 // ✅ Custom Callbacks (still work alongside controller)
                 onDownloadTap: () {
+                  print('🔍 DEBUG: onDownloadTap called (hover icon clicked)');
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('🔥 Custom Download Action Triggered!'),
@@ -509,6 +688,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                   _handleDownload();
                 },
                 onCopyTap: () {
+                  print('🔍 DEBUG: onCopyTap called (hover icon clicked)');
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('🔥 Custom Copy Action Triggered!'),
@@ -520,16 +700,18 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                 
                 // ✅ Image Data Callback (still works with controller)
                 onImageLoaded: (ImageDataInfo imageData) {
+                  print('🔍 DEBUG: onImageLoaded called');
+                  print('🔍 DEBUG: Heavy image data: ${imageData.imageBytes.length} bytes (${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB), ${imageData.width}x${imageData.height}');
                   setState(() => _imageData = imageData);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('✅ Image loaded! Hover to see ${_selectedPosition.name} icons'),
+                      content: Text('✅ Heavy image loaded! ${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB - Hover to see ${_selectedPosition.name} icons'),
                       backgroundColor: Colors.green,
                     ),
                   );
                 },
                 
-                // Custom loading
+                // Custom loading with file size info
                 customLoadingBuilder: (context, child, progress) {
                   return Container(
                     width: 400,
@@ -543,8 +725,13 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                           const SizedBox(height: 8),
                           Text(
                             progress?.progress != null 
-                              ? 'Loading ${(progress!.progress! * 100).toInt()}%'
-                              : 'Loading...',
+                              ? 'Loading Heavy Image ${(progress!.progress! * 100).toInt()}%'
+                              : 'Loading Heavy Image...',
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            '4K Resolution (~3-5 MB)',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ],
                       ),
@@ -594,14 +781,14 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   }
   
   Widget _buildPositionExample(HoverIconPosition position, int index) {
-    // Use different images to reduce server load and improve loading
-    final imageUrls = [
-      'https://picsum.photos/300/200?random=1',
-      'https://picsum.photos/300/200?random=2', 
-      'https://picsum.photos/300/200?random=3',
-      'https://picsum.photos/300/200?random=4',
-      'https://picsum.photos/300/200?random=5',
-      'https://picsum.photos/300/200?random=6',
+    // Use heavy 4K images for position examples
+    final heavyImageUrls = [
+      'https://picsum.photos/4000/3000?random=pos1', // 4K images
+      'https://picsum.photos/4000/3000?random=pos2', 
+      'https://picsum.photos/4000/3000?random=pos3',
+      'https://picsum.photos/4000/3000?random=pos4',
+      'https://picsum.photos/4000/3000?random=pos5',
+      'https://picsum.photos/4000/3000?random=pos6',
     ];
     
     return Column(
@@ -610,7 +797,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
         const SizedBox(height: 4),
         Expanded(
           child: CustomNetworkImage(
-            url: imageUrls[index % imageUrls.length],
+            url: heavyImageUrls[index % heavyImageUrls.length],
             fit: BoxFit.cover,
             
             downloadIcon: const Icon(Icons.download, color: Colors.white, size: 14),
@@ -620,10 +807,12 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
             hoverIconSpacing: 4,
             
             onImageLoaded: (imageData) {
-              // Removed debug print for performance
+              print('🔍 DEBUG: Position ${position.name} loaded: ${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB');
             },
           ),
         ),
+        const SizedBox(height: 2),
+        const Text('4K', style: TextStyle(fontSize: 10, color: Colors.grey)),
       ],
     );
   }
@@ -684,10 +873,27 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   
   // LEGACY: Keep these methods for the custom callbacks
   Future<void> _handleDownload() async {
-    if (_imageData == null) return;
+    print('🔍 DEBUG: _handleDownload called');
+    print('🔍 DEBUG: _imageData is null: ${_imageData == null}');
+    
+    if (_imageData == null) {
+      print('❌ DEBUG: No image data available for download');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ No image data available. Wait for image to load.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    print('🔍 DEBUG: Image data available: ${_imageData!.imageBytes.length} bytes, ${_imageData!.width}x${_imageData!.height}');
     
     try {
+      print('🔍 DEBUG: Calling ImageClipboardHelper.downloadImage...');
       final success = await ImageClipboardHelper.downloadImage(_imageData!);
+      print('🔍 DEBUG: Download result: $success');
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(success ? '📥 Image downloaded successfully!' : '❌ Download failed'),
@@ -695,6 +901,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
         ),
       );
     } catch (e) {
+      print('❌ DEBUG: Download error: $e');
+      print('❌ DEBUG: Download stack trace: ${StackTrace.current}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Download error: $e'),
@@ -705,10 +913,27 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   }
   
   Future<void> _handleCopy() async {
-    if (_imageData == null) return;
+    print('🔍 DEBUG: _handleCopy called');
+    print('🔍 DEBUG: _imageData is null: ${_imageData == null}');
+    
+    if (_imageData == null) {
+      print('❌ DEBUG: No image data available for copy');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ No image data available. Wait for image to load.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    print('🔍 DEBUG: Image data available: ${_imageData!.imageBytes.length} bytes, ${_imageData!.width}x${_imageData!.height}');
     
     try {
+      print('🔍 DEBUG: Calling ImageClipboardHelper.copyImageToClipboard...');
       final success = await ImageClipboardHelper.copyImageToClipboard(_imageData!);
+      print('🔍 DEBUG: Copy result: $success');
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(success ? '📋 Image copied to clipboard! Press Ctrl+V to paste.' : '❌ Copy failed'),
@@ -716,6 +941,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
         ),
       );
     } catch (e) {
+      print('❌ DEBUG: Copy error: $e');
+      print('❌ DEBUG: Copy stack trace: ${StackTrace.current}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Copy error: $e'),

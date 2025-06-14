@@ -4,6 +4,17 @@
 
 A Flutter package that provides advanced image loading solutions for handling CORS issues, with modern hover icons, clipboard functionality, right-click context menus, and image data access.
 
+## 🚀 Live Demo
+
+Try out all the features interactively: **[https://nguyenhuutukhtn.github.io/flutter_cors_image/](https://nguyenhuutukhtn.github.io/flutter_cors_image/)**
+
+The demo includes 5 comprehensive examples:
+- **Basic Usage**: Core image loading with CORS handling and error states
+- **Tap Events**: Interactive tap functionality with counter examples  
+- **Zoom Support**: Pinch-to-zoom and click-to-zoom with transformation controls
+- **Context Menu**: Right-click context menus with custom actions (web only)
+- **Advanced**: Hover icons, clipboard operations, and external controller management
+
 ## Features
 
 This package provides comprehensive image loading solutions:
