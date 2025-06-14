@@ -274,6 +274,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   
   // NEW: Context menu state
   OverlayEntry? _contextMenuOverlay;
+  
+  // NEW: Loading guard to prevent multiple simultaneous loads
+  bool _isCurrentlyLoading = false;
 
   @override
   void initState() {
@@ -472,6 +475,16 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       removeHtmlImageErrorCallback(_viewType);
       removeHtmlImageSuccessCallback(_viewType);
       cleanupHtmlElement(_viewType);
+      
+      // NEW: Clean up JavaScript fetch function to prevent memory leaks
+      final functionName = 'fetchImageBytes${widget.url.hashCode}';
+      try {
+        if (js.context[functionName] != null) {
+          js.context.deleteProperty(functionName);
+        }
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     }
     
     // Remove transformation listener
@@ -520,6 +533,16 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   }
 
   void _preloadImage() {
+    print('[CustomNetworkImage] Preloading image - isCurrentlyLoading: $_isCurrentlyLoading');
+    
+    // Prevent multiple simultaneous loading attempts
+    if (_isCurrentlyLoading) {
+      print('[CustomNetworkImage] Already loading, skipping duplicate call');
+      return;
+    }
+    
+    _isCurrentlyLoading = true;
+    
     // Clean up any existing stream
     _cleanupImageStream();
     
@@ -541,10 +564,155 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       widget.controller!.updateError(null);
     }
     
+    // On web platform, try to fetch image bytes first to prevent duplicate requests
+    if (kIsWeb) {
+      _preloadImageWeb();
+    } else {
+      _preloadImageNative();
+    }
+  }
+  
+  // NEW: Web-specific image loading that fetches bytes first
+  // OPTIMIZATION: This prevents duplicate network requests on web platforms
+  // by fetching image bytes using fetch first, then displaying from memory.
+  // This approach solves CORS issues and ensures consistent image data between
+  // display and copy functionality, while providing better progress tracking.
+  void _preloadImageWeb() async {
+    print('[CustomNetworkImage] Preloading image web');
+    try {
+      // Attempt to fetch image bytes with progress tracking
+      print('[CustomNetworkImage] Attempting to fetch image bytes via CORS workaround');
+      final imageBytes = await _fetchImageBytesWithCors(
+        widget.url,
+        onProgress: (progress) {
+          if (mounted) {
+            // Estimate total bytes for progress (we'll get real size later)
+            final estimatedTotal = 1024 * 1024; // 1MB estimate
+            final loaded = (progress * estimatedTotal).round();
+            
+            final loadingProgress = CustomImageProgress(
+              cumulativeBytesLoaded: loaded,
+              expectedTotalBytes: estimatedTotal,
+              progress: progress,
+            );
+            
+            setState(() {
+              _loadingProgress = loadingProgress;
+            });
+            
+            // Update controller state
+            if (widget.controller != null) {
+              widget.controller!.updateLoadingProgress(loadingProgress);
+            }
+          }
+        },
+      );
+      
+      if (imageBytes != null && mounted) {
+        print('[CustomNetworkImage] Successfully fetched ${imageBytes.length} bytes');
+        // Successfully fetched image bytes, now decode to get dimensions
+        try {
+          final codec = await ui.instantiateImageCodec(imageBytes);
+          final frame = await codec.getNextFrame();
+          final ui.Image image = frame.image;
+          
+          // Create image data
+          final imageData = ImageDataInfo(
+            imageBytes: imageBytes,
+            width: image.width,
+            height: image.height,
+            url: widget.url,
+          );
+          
+          print('[CustomNetworkImage] Successfully decoded image: ${image.width}x${image.height}');
+          
+          // Update state - image loaded successfully
+          if (mounted) {
+            setState(() {
+              _loadingState = ImageLoadingState.loaded;
+              _loadingProgress = null;
+              _loadError = false;
+              _imageData = imageData;
+            });
+            
+            // Update controller state
+            if (widget.controller != null) {
+              widget.controller!.updateLoadingState(_loadingState);
+              widget.controller!.updateLoadingProgress(null);
+              widget.controller!.updateImageData(imageData);
+              widget.controller!.updateError(null);
+            }
+            
+            // Call callback if provided
+            if (widget.onImageLoaded != null) {
+              widget.onImageLoaded!(imageData);
+            }
+          }
+          
+          image.dispose();
+          
+          // Reset loading guard - success
+          _isCurrentlyLoading = false;
+          
+        } catch (decodeError) {
+          print('[CustomNetworkImage] Failed to decode image: $decodeError');
+          // Failed to decode - go directly to HTML fallback on web
+          print('[CustomNetworkImage] Going directly to HTML fallback');
+          if (mounted) {
+            _setHtmlFallbackState();
+          }
+          _isCurrentlyLoading = false;
+        }
+        
+      } else {
+        print('[CustomNetworkImage] Failed to fetch image bytes, going directly to HTML fallback');
+        // Failed to fetch bytes - go directly to HTML fallback on web to avoid duplicate network request
+        if (mounted) {
+          _setHtmlFallbackState();
+        }
+        _isCurrentlyLoading = false;
+      }
+      
+    } catch (e) {
+      print('[CustomNetworkImage] Error in web fetch: $e, going directly to HTML fallback');
+      // Error in web fetch - go directly to HTML fallback on web to avoid duplicate network request
+      if (mounted) {
+        _setHtmlFallbackState();
+      }
+      _isCurrentlyLoading = false;
+    }
+  }
+  
+  // NEW: Helper method to set HTML fallback state directly
+  void _setHtmlFallbackState() {
+    setState(() {
+      _loadingState = ImageLoadingState.failed;
+      _loadingProgress = null;
+      _loadError = true;
+      _waitingForHtml = true; // This will trigger HTML display
+      _imageData = null;
+    });
+    
+    // Update controller state
+    if (widget.controller != null) {
+      widget.controller!.updateLoadingState(_loadingState);
+      widget.controller!.updateLoadingProgress(null);
+      widget.controller!.updateImageData(null);
+      widget.controller!.updateError('Failed to load image via CORS, using HTML fallback');
+    }
+    
+    // Start animation controller for HTML fallback if needed
+    if (widget.transformationController != null && !_transformSyncController.isAnimating) {
+      _transformSyncController.repeat();
+    }
+  }
+
+  // Native/fallback image loading using Flutter's standard approach
+  void _preloadImageNative() {
+    print('[CustomNetworkImage] Preloading image native');
     // Create image provider and stream
     final imageProvider = NetworkImage(widget.url, headers: widget.headers);
     _imageStream = imageProvider.resolve(ImageConfiguration.empty);
-    
     
     // Create our custom listener that tracks progress more reliably
     _imageStreamListener = ImageStreamListener(
@@ -608,6 +776,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             }
           }
         }
+        
+        // Reset loading guard - success
+        _isCurrentlyLoading = false;
       },
       onError: (dynamic error, StackTrace? stackTrace) {
         // Image failed to load
@@ -633,6 +804,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             _transformSyncController.repeat();
           }
         }
+        
+        // Reset loading guard - error
+        _isCurrentlyLoading = false;
       },
       onChunk: (ImageChunkEvent event) {
         // Update loading progress - this is our reliable alternative to buggy loadingBuilder
@@ -719,75 +893,194 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     }
   }
 
-  // NEW: Fetch image bytes directly using browser's fetch API to bypass CORS restrictions
-  Future<Uint8List?> _fetchImageBytesWithCors(String imageUrl) async {
+  // NEW: Fetch image bytes directly using fetch API with multiple CORS strategies to bypass restrictions
+  Future<Uint8List?> _fetchImageBytesWithCors(String imageUrl, {Function(double)? onProgress}) async {
     if (!kIsWeb) {
       return null;
     }
     
     try {
-      // Use JavaScript fetch API which has better CORS handling
+      // Use fetch API with multiple fallback strategies to avoid preflight requests
       final completer = Completer<Uint8List?>();
       
-      final script = html.document.createElement('script');
-      script.text = '''
-        window.fetchImageBytes${widget.url.hashCode} = async function() {
-          try {
-            // Try different CORS modes
-            let response;
-            try {
-              // First try with CORS mode (allows reading response)
-              response = await fetch('$imageUrl', { 
-                mode: 'cors',
-                cache: 'no-cache'
-              });
-            } catch (corsError) {
-              try {
-                // Fallback to no-cors (won't allow reading response, but might work for some cases)
-                response = await fetch('$imageUrl', { 
-                  mode: 'no-cors',
-                  cache: 'no-cache'
-                });
-              } catch (noCorsError) {
-                // Last try with default settings
-                response = await fetch('$imageUrl');
-              }
-            }
-            
-            if (response.type === 'opaque') {
-              return null;
-            }
-            
-            if (!response.ok) {
-              return null;
-            }
-            
-            const arrayBuffer = await response.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            // Convert to regular Array to avoid interop issues
-            const regularArray = Array.from(uint8Array);
-            return regularArray;
-            
-          } catch (error) {
-            return null;
-          }
-        };
-      ''';
+      // Check if the function already exists in window to avoid duplicate scripts
+      final functionName = 'fetchImageBytes${widget.url.hashCode}';
+      final existingFunction = js.context[functionName];
       
-      html.document.head!.append(script);
+      if (existingFunction == null) {
+        final script = html.document.createElement('script');
+        script.text = '''
+          window.$functionName = async function(progressCallback) {
+            try {
+              let response;
+              let usedCors = false;
+              
+              // Strategy 1: Try simple fetch first (no preflight)
+              try {
+                response = await fetch('$imageUrl', {
+                  method: 'GET',
+                  cache: 'no-cache'
+                  // No custom headers to avoid preflight
+                });
+                
+                if (response.ok && response.type !== 'opaque') {
+                  usedCors = true;
+                }
+              } catch (e) {
+                response = null;
+              }
+              
+              // Strategy 2: Try no-cors mode if simple fetch failed
+              if (!response || !response.ok) {
+                try {
+                  response = await fetch('$imageUrl', {
+                    method: 'GET',
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                  });
+                  usedCors = false; // no-cors means we can't read the response
+                } catch (e) {
+                  response = null;
+                }
+              }
+              
+              // Strategy 3: Try CORS mode as last resort
+              if (!response || (!response.ok && response.type !== 'opaque')) {
+                try {
+                  response = await fetch('$imageUrl', {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                  });
+                  usedCors = true;
+                } catch (e) {
+                  response = null;
+                }
+              }
+              
+              if (!response) {
+                return null;
+              }
+              
+              // If we got an opaque response (no-cors), we can't read the data
+              // This is a limitation of no-cors mode
+              if (response.type === 'opaque' || !usedCors) {
+                return null;
+              }
+              
+              if (!response.ok) {
+                return null;
+              }
+              
+              // Try to get content length for progress
+              let contentLength = null;
+              try {
+                const contentLengthHeader = response.headers.get('Content-Length');
+                if (contentLengthHeader) {
+                  contentLength = parseInt(contentLengthHeader, 10);
+                }
+              } catch (e) {
+                // Ignore header reading errors
+              }
+              
+              // Read the response as a stream if possible for progress tracking
+              if (response.body && response.body.getReader && progressCallback && contentLength) {
+                const reader = response.body.getReader();
+                const chunks = [];
+                let receivedLength = 0;
+                
+                try {
+                  while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    chunks.push(value);
+                    receivedLength += value.length;
+                    
+                    // Report progress
+                    if (progressCallback && contentLength > 0) {
+                      const progress = receivedLength / contentLength;
+                      progressCallback(Math.min(progress, 1.0));
+                    }
+                  }
+                  
+                  // Combine chunks into single array
+                  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+                  const result = new Uint8Array(totalLength);
+                  let offset = 0;
+                  
+                  for (const chunk of chunks) {
+                    result.set(chunk, offset);
+                    offset += chunk.length;
+                  }
+                  
+                  // Convert to regular Array to avoid interop issues
+                  const regularArray = Array.from(result);
+                  return {
+                    data: regularArray,
+                    size: totalLength,
+                    contentType: response.headers.get('Content-Type') || 'image/unknown'
+                  };
+                  
+                } catch (streamError) {
+                  // Fall back to arrayBuffer if streaming fails
+                  try {
+                    const arrayBuffer = await response.arrayBuffer();
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    const regularArray = Array.from(uint8Array);
+                    return {
+                      data: regularArray,
+                      size: arrayBuffer.byteLength,
+                      contentType: response.headers.get('Content-Type') || 'image/unknown'
+                    };
+                  } catch (arrayBufferError) {
+                    return null;
+                  }
+                }
+              } else {
+                // No streaming support or no progress callback, use arrayBuffer directly
+                try {
+                  const arrayBuffer = await response.arrayBuffer();
+                  const uint8Array = new Uint8Array(arrayBuffer);
+                  const regularArray = Array.from(uint8Array);
+                  return {
+                    data: regularArray,
+                    size: arrayBuffer.byteLength,
+                    contentType: response.headers.get('Content-Type') || 'image/unknown'
+                  };
+                } catch (arrayBufferError) {
+                  return null;
+                }
+              }
+              
+            } catch (error) {
+              return null;
+            }
+          };
+        ''';
+        
+        html.document.head!.append(script);
+      }
+      
+      // Create progress callback
+      final progressCallback = onProgress != null ? js.allowInterop((double progress) {
+        onProgress(progress);
+      }) : null;
       
       // Call the function
-      final promise = js.context.callMethod('fetchImageBytes${widget.url.hashCode}');
+      final promise = js.context.callMethod(functionName, [progressCallback]);
       
       // Handle the promise
       final thenCallback = js.allowInterop((result) {
-        script.remove(); // Clean up
         if (result != null) {
           try {
-            // Convert JavaScript regular array to Dart Uint8List
-            final jsArray = result as js.JsObject;
+            // Extract data from the result object
+            final jsResult = result as js.JsObject;
+            final jsArray = jsResult['data'] as js.JsObject;
             final length = jsArray['length'] as int;
+            final size = jsResult['size'] as int;
+            final contentType = jsResult['contentType'] as String;
             
             // Create Dart Uint8List and copy data
             final dartList = Uint8List(length);
@@ -812,14 +1105,12 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       });
       
       final catchCallback = js.allowInterop((error) {
-        script.remove(); // Clean up
         completer.complete(null);
       });
       
       if (promise != null) {
         promise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
       } else {
-        script.remove();
         completer.complete(null);
       }
       
@@ -940,40 +1231,67 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     else if (_loadingState == ImageLoadingState.loading && widget.customLoadingBuilder != null) {
       imageWidget = _buildCustomLoadingWidget();
     }
-    // If we haven't detected an error yet, try normal Flutter image
+    // If we haven't detected an error yet, try displaying the image
     else if (!_loadError) {
-      imageWidget = Image.network(
-        widget.url,
-        key: _key,
-        width: widget.width,
-        height: widget.height,
-        fit: widget.fit,
-        // Pass through all other parameters
-        scale: widget.scale,
-        headers: widget.headers,
-        cacheWidth: widget.cacheWidth,
-        cacheHeight: widget.cacheHeight,
-        color: widget.color,
-        colorBlendMode: widget.colorBlendMode,
-        semanticLabel: widget.semanticLabel,
-        excludeFromSemantics: widget.excludeFromSemantics,
-        alignment: widget.alignment,
-        repeat: widget.repeat,
-        centerSlice: widget.centerSlice,
-        matchTextDirection: widget.matchTextDirection,
-        gaplessPlayback: widget.gaplessPlayback,
-        filterQuality: widget.filterQuality,
-        isAntiAlias: widget.isAntiAlias,
-        errorBuilder: (context, error, stackTrace) {
-          if (kIsWeb) {
-            // We're already in error state, use HTML fallback
-            return _buildHtmlImageView();
-          } else {
-            // On native platforms, use ExtendedImage fallback
-            return _buildExtendedImageFallback();
-          }
-        },
-      );
+      // On web, if we have image data, display from bytes to avoid duplicate requests
+      if (kIsWeb && _imageData != null) {
+        imageWidget = Image.memory(
+          _imageData!.imageBytes,
+          key: _key,
+          width: widget.width,
+          height: widget.height,
+          fit: widget.fit,
+          // Pass through all other parameters
+          scale: widget.scale,
+          cacheWidth: widget.cacheWidth,
+          cacheHeight: widget.cacheHeight,
+          color: widget.color,
+          colorBlendMode: widget.colorBlendMode,
+          semanticLabel: widget.semanticLabel,
+          excludeFromSemantics: widget.excludeFromSemantics,
+          alignment: widget.alignment,
+          repeat: widget.repeat,
+          centerSlice: widget.centerSlice,
+          matchTextDirection: widget.matchTextDirection,
+          gaplessPlayback: widget.gaplessPlayback,
+          filterQuality: widget.filterQuality,
+          isAntiAlias: widget.isAntiAlias,
+        );
+      } else {
+        // Standard Flutter image loading
+        imageWidget = Image.network(
+          widget.url,
+          key: _key,
+          width: widget.width,
+          height: widget.height,
+          fit: widget.fit,
+          // Pass through all other parameters
+          scale: widget.scale,
+          headers: widget.headers,
+          cacheWidth: widget.cacheWidth,
+          cacheHeight: widget.cacheHeight,
+          color: widget.color,
+          colorBlendMode: widget.colorBlendMode,
+          semanticLabel: widget.semanticLabel,
+          excludeFromSemantics: widget.excludeFromSemantics,
+          alignment: widget.alignment,
+          repeat: widget.repeat,
+          centerSlice: widget.centerSlice,
+          matchTextDirection: widget.matchTextDirection,
+          gaplessPlayback: widget.gaplessPlayback,
+          filterQuality: widget.filterQuality,
+          isAntiAlias: widget.isAntiAlias,
+          errorBuilder: (context, error, stackTrace) {
+            if (kIsWeb) {
+              // We're already in error state, use HTML fallback
+              return _buildHtmlImageView();
+            } else {
+              // On native platforms, use ExtendedImage fallback
+              return _buildExtendedImageFallback();
+            }
+          },
+        );
+      }
     } else {
       // Non-web fallback
       imageWidget = _buildExtendedImageFallback();
@@ -1399,7 +1717,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             },
             borderRadius: BorderRadius.circular(4),
             child: Container(
-              padding: EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.7),
                 borderRadius: BorderRadius.circular(4),
@@ -1426,7 +1744,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             },
             borderRadius: BorderRadius.circular(4),
             child: Container(
-              padding: EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.7),
                 borderRadius: BorderRadius.circular(4),
@@ -1438,7 +1756,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       );
     }
     
-    if (icons.isEmpty) return SizedBox.shrink();
+    if (icons.isEmpty) return const SizedBox.shrink();
     
     // Position the icons based on the selected position
     return _getIconPositionedWidget(
@@ -1536,6 +1854,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
 
   // NEW: Controller callback handlers
   void _handleControllerReload() {
+    // Reset loading guard for controller-initiated reload
+    _isCurrentlyLoading = false;
     _preloadImage();
   }
 
