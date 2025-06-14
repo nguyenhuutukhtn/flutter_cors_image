@@ -83,12 +83,12 @@ class _ContextMenuDemoPageState extends State<ContextMenuDemoPage> {
               height: 200,
               enableContextMenu: true,
               customContextMenuItems: [
-                ContextMenuItem(
+                const ContextMenuItem(
                   title: 'Download Image',
                   icon: Icons.download,
                   action: ContextMenuAction.saveImage,
                 ),
-                ContextMenuItem(
+                const ContextMenuItem(
                   title: 'Copy to Clipboard',
                   icon: Icons.copy,
                   action: ContextMenuAction.copyImage,
@@ -118,7 +118,7 @@ class _ContextMenuDemoPageState extends State<ContextMenuDemoPage> {
             // Context menu disabled example
             const Text('3. Context Menu Disabled:', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-            CustomNetworkImage(
+            const CustomNetworkImage(
               url: 'https://picsum.photos/300/200?random=3',
               width: 300,
               height: 200,

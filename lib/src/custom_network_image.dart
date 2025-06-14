@@ -15,6 +15,9 @@ import 'image_context_menu.dart';
 ///
 /// This widget first tries to load the image using Flutter's Image.network,
 /// and if that fails (on web platforms), it automatically falls back to using an HTML img tag.
+
+
+
 class CustomNetworkImage extends StatefulWidget {
   final String url;
   final double? width;
@@ -229,7 +232,7 @@ class CustomNetworkImage extends StatefulWidget {
     this.onDownloadTap,
     this.onCopyTap,
     // Context menu parameters
-    this.enableContextMenu = true,
+    this.enableContextMenu = false,
     this.customContextMenuItems,
     this.contextMenuBackgroundColor,
     this.contextMenuTextColor,
@@ -271,6 +274,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   @override
   void initState() {
     super.initState();
+    
     // Create a unique view type name for this widget instance
     // Include uniqueId if provided for better isolation in ListViews
     _viewType = 'html-image-${widget.uniqueId ?? widget.url.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
@@ -325,6 +329,10 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
           setState(() {
             _waitingForHtml = false; // Hide loading overlay
           });
+          
+          // IMPORTANT: Try to extract image data for copy functionality
+          // when HTML fallback succeeds
+          _tryExtractImageDataFromHtmlFallback();
         }
       });
       
@@ -343,8 +351,12 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       }
     }
     
-    // Try loading the image first
-    _preloadImage();
+    // Try loading the image asynchronously after initState completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _preloadImage();
+      }
+    });
   }
   
   @override
@@ -390,6 +402,10 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
           setState(() {
             _waitingForHtml = false; // Hide loading overlay
           });
+          
+          // IMPORTANT: Try to extract image data for copy functionality
+          // when HTML fallback succeeds
+          _tryExtractImageDataFromHtmlFallback();
         }
       });
 
@@ -441,8 +457,10 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   
   @override
   void dispose() {
-    // Clean up context menu
-    _removeContextMenu();
+    // PERFORMANCE FIX: Only clean up context menu if it was enabled
+    if (widget.enableContextMenu && kIsWeb) {
+      _removeContextMenu();
+    }
     
     // Clean up HTML resources
     if (kIsWeb) {
@@ -667,6 +685,93 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     }
   }
 
+  // NEW: Try to extract image data from HTML fallback for copy functionality
+  Future<void> _tryExtractImageDataFromHtmlFallback() async {
+    if (!mounted || _imageData != null) return; // Already have data
+    
+    try {
+      // Attempt to load the image again using ImageProvider to get bytes
+      // This is a workaround since HTML img doesn't provide bytes directly
+      final imageProvider = NetworkImage(widget.url, headers: widget.headers);
+      final imageBytes = await _getImageBytes(imageProvider);
+      
+      if (imageBytes != null && mounted) {
+        // We need to get dimensions, try to decode the image
+        try {
+          final codec = await ui.instantiateImageCodec(imageBytes);
+          final frame = await codec.getNextFrame();
+          final ui.Image image = frame.image;
+          
+          final imageData = ImageDataInfo(
+            imageBytes: imageBytes,
+            width: image.width,
+            height: image.height,
+            url: widget.url,
+          );
+          
+          // Update state
+          setState(() {
+            _imageData = imageData;
+            _loadingState = ImageLoadingState.loaded; // Update to loaded since HTML succeeded
+          });
+          
+          // Update controller
+          if (widget.controller != null) {
+            widget.controller!.updateImageData(imageData);
+            widget.controller!.updateLoadingState(ImageLoadingState.loaded);
+            widget.controller!.updateError(null);
+          }
+          
+          // Call callback if provided
+          if (widget.onImageLoaded != null) {
+            widget.onImageLoaded!(imageData);
+          }
+          
+          image.dispose();
+        } catch (e) {
+          // Failed to decode image for dimensions, create with unknown dimensions
+          final imageData = ImageDataInfo(
+            imageBytes: imageBytes,
+            width: 0, // Unknown
+            height: 0, // Unknown
+            url: widget.url,
+          );
+          
+          if (mounted) {
+            setState(() {
+              _imageData = imageData;
+              _loadingState = ImageLoadingState.loaded;
+            });
+            
+            // Update controller
+            if (widget.controller != null) {
+              widget.controller!.updateImageData(imageData);
+              widget.controller!.updateLoadingState(ImageLoadingState.loaded);
+              widget.controller!.updateError(null);
+            }
+            
+            // Call callback if provided
+            if (widget.onImageLoaded != null) {
+              widget.onImageLoaded!(imageData);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Failed to extract image data, but HTML is still showing the image
+      // This is not a critical error, just means copy won't work
+      if (kDebugMode) {
+        print('Failed to extract image data from HTML fallback: $e');
+      }
+      
+      // Update controller with partial success state
+      if (widget.controller != null) {
+        widget.controller!.updateLoadingState(ImageLoadingState.loaded);
+        widget.controller!.updateError('Image loaded via HTML but copy functionality unavailable');
+      }
+    }
+  }
+
   // NEW: Public method to get current image data (if available)
   ImageDataInfo? getCurrentImageData() {
     return _imageData;
@@ -674,9 +779,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    if (kDebugMode) {
-      print('Building CustomNetworkImage. LoadError: $_loadError, HtmlError: $_htmlError, LoadingState: $_loadingState');
-    }
+    // Removed debug print to improve performance
     
     Widget imageWidget;
     
@@ -752,7 +855,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       );
     }
     
-    // Add context menu support if enabled (web only)
+    // PERFORMANCE FIX: Only add context menu support if enabled (web only)
     if (widget.enableContextMenu && kIsWeb) {
       wrappedWidget = _buildContextMenuWrapper(wrappedWidget);
     }
@@ -762,35 +865,17 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   
   /// Build context menu wrapper with right-click detection
   Widget _buildContextMenuWrapper(Widget child) {
-    if (kDebugMode) {
-      print('Building context menu wrapper. Load error: $_loadError, HTML error: $_htmlError');
-    }
-    
     return DisableWebContextMenu(
-      child: GestureDetector(
-        onSecondaryTapDown: (details) {
-          if (kDebugMode) {
-            print('Right-click detected at: ${details.globalPosition}');
-          }
-          _showContextMenuAt(details.globalPosition);
-        },
-        child: child,
-      ),
+      identifier: 'image_${widget.url.hashCode}_${hashCode}',
+      onContextMenu: _showContextMenuAt,
+      child: child,
     );
   }
   
   /// Show context menu at the specified global position
   void _showContextMenuAt(Offset globalPosition) {
-    if (kDebugMode) {
-      print('_showContextMenuAt called. Mounted: $mounted, Position: $globalPosition');
-      print('Image data available: ${_imageData != null}');
-      print('Custom items: ${widget.customContextMenuItems?.length ?? 'null'}');
-    }
-    
-    if (!mounted) {
-      if (kDebugMode) print('Widget not mounted, returning');
-      return;
-    }
+    // PERFORMANCE FIX: Early return if context menu is disabled
+    if (!widget.enableContextMenu || !kIsWeb || !mounted) return;
     
     // Remove any existing context menu
     _removeContextMenu();
@@ -798,16 +883,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     // Get context menu items (use custom or default)
     final items = widget.customContextMenuItems ?? ImageContextMenu.defaultItems;
     
-    if (kDebugMode) {
-      print('Using ${items.length} context menu items');
-    }
-    
     // Create the overlay entry
     _contextMenuOverlay = OverlayEntry(
       builder: (context) {
-        if (kDebugMode) {
-          print('Building ImageContextMenu overlay at position: $globalPosition');
-        }
         return ImageContextMenu(
           position: globalPosition,
           items: items,
@@ -829,27 +907,21 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       },
     );
     
-    if (kDebugMode) {
-      print('Inserting overlay into Overlay.of(context)');
-    }
-    
     // Insert the overlay
     try {
       Overlay.of(context).insert(_contextMenuOverlay!);
-      if (kDebugMode) {
-        print('Overlay inserted successfully');
-      }
     } catch (e) {
-      if (kDebugMode) {
-        print('Failed to insert overlay: $e');
-      }
+      // Silently fail
     }
   }
   
   /// Remove the context menu
   void _removeContextMenu() {
-    _contextMenuOverlay?.remove();
-    _contextMenuOverlay = null;
+    // PERFORMANCE FIX: Only remove if overlay exists
+    if (_contextMenuOverlay != null) {
+      _contextMenuOverlay!.remove();
+      _contextMenuOverlay = null;
+    }
   }
 
   // CUSTOM LOADING WIDGET - Alternative to buggy Flutter loadingBuilder

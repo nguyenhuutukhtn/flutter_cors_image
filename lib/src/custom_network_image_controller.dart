@@ -145,6 +145,111 @@ class CustomNetworkImageController extends ChangeNotifier {
     }
   }
 
+  /// Copy the current image to clipboard (safe version)
+  /// 
+  /// This method handles the case when image is not loaded yet.
+  /// Returns a CopyResult indicating success, failure, or waiting state.
+  Future<CopyResult> copyImageToClipboardSafe() async {
+    if (_isDisposed) return CopyResult.failed('Controller has been disposed');
+    
+    // If image is currently loading, return waiting state
+    if (_loadingState == ImageLoadingState.loading) {
+      return CopyResult.waiting('Image is still loading. Please wait or use copyImageToClipboardWhenReady()');
+    }
+    
+    // If image failed to load, return failed state
+    if (_loadingState == ImageLoadingState.failed) {
+      return CopyResult.failed('Image failed to load: ${_errorMessage ?? "Unknown error"}');
+    }
+    
+    // If no image data available, return failed state
+    if (_imageData == null) {
+      return CopyResult.failed('No image data available. Image may not be loaded yet.');
+    }
+
+    // Try to copy
+    try {
+      final success = await copyImageToClipboard();
+      return success ? CopyResult.success() : CopyResult.failed('Copy operation failed');
+    } catch (e) {
+      return CopyResult.failed('Copy error: $e');
+    }
+  }
+
+  /// Copy the current image to clipboard when ready
+  /// 
+  /// This method waits for the image to load before copying.
+  /// [timeout] specifies how long to wait before timing out.
+  /// Returns true if copy was successful, false otherwise.
+  Future<bool> copyImageToClipboardWhenReady({Duration timeout = const Duration(seconds: 30)}) async {
+    if (_isDisposed) return false;
+    
+    try {
+      // Wait for the image to load first
+      await waitForLoad(timeout: timeout);
+      
+      // Now copy the image
+      return await copyImageToClipboard();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Copy when ready error: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Try to copy image to clipboard without throwing exceptions
+  /// 
+  /// Returns true if successful, false if failed or not ready.
+  /// This is the safest method to use for UI buttons.
+  Future<bool> tryCopyToClipboard() async {
+    try {
+      return await copyImageToClipboard();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Try copy error: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Check if copy functionality is available
+  /// 
+  /// Returns true if image data is available for copying.
+  /// Useful for enabling/disabling copy buttons.
+  bool get canCopy => hasImageData && !_isDisposed;
+
+  /// Get detailed copy status information
+  /// 
+  /// Returns information about why copy might not be available.
+  CopyAvailabilityStatus getCopyAvailabilityStatus() {
+    if (_isDisposed) {
+      return CopyAvailabilityStatus.unavailable('Controller has been disposed');
+    }
+    
+    if (_loadingState == ImageLoadingState.initial) {
+      return CopyAvailabilityStatus.unavailable('Image loading not started');
+    }
+    
+    if (_loadingState == ImageLoadingState.loading) {
+      return CopyAvailabilityStatus.waiting('Image is still loading');
+    }
+    
+    if (_loadingState == ImageLoadingState.failed) {
+      return CopyAvailabilityStatus.unavailable('Image failed to load: ${_errorMessage ?? "Unknown error"}');
+    }
+    
+    if (_loadingState == ImageLoadingState.loaded && _imageData == null) {
+      return CopyAvailabilityStatus.unavailable('Image loaded via HTML fallback - copy functionality may be limited');
+    }
+    
+    if (_imageData != null) {
+      return CopyAvailabilityStatus.available('Ready to copy');
+    }
+    
+    return CopyAvailabilityStatus.unavailable('Unknown state');
+  }
+
   /// Get the current image data
   /// 
   /// Returns null if image is not loaded or failed to load

@@ -231,6 +231,18 @@ class _ImageCopyExampleState extends State<ImageCopyExample> {
             },
             child: Text('Copy to Clipboard'),
           ),
+          // ✅ NEW: Copy raw bytes with dimensions
+          ElevatedButton(
+            onPressed: () async {
+              final success = await ImageClipboardHelper.copyImageBytesToClipboard(
+                _imageData!.imageBytes,
+                width: _imageData!.width,
+                height: _imageData!.height,
+              );
+              // Copies raw image bytes to clipboard for Ctrl+V pasting
+            },
+            child: Text('Copy Raw Bytes'),
+          ),
         ],
       ],
     );
@@ -238,103 +250,10 @@ class _ImageCopyExampleState extends State<ImageCopyExample> {
 }
 ```
 
-### Using CustomNetworkImage with Error Handling (v0.2.0+):
-
-```dart
-CustomNetworkImage(
-  url: 'https://example.com/image.jpg',
-  width: 300,
-  height: 200,
-  fit: BoxFit.cover,
-  // NEW v0.2.0: Widget-based error handling
-  errorWidget: Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(Icons.error, color: Colors.red),
-      SizedBox(width: 8),
-      Text('Image failed to load'),
-    ],
-  ),
-  reloadWidget: Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(Icons.refresh),
-      SizedBox(width: 8),
-      Text('Reload Image'),
-    ],
-  ),
-  openUrlWidget: Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(Icons.open_in_new),
-      SizedBox(width: 8),
-      Text('Open in New Tab'),
-    ],
-  ),
-)
-```
-
-## Hover Icons & Positioning (v0.3.0+)
-
-### Available Positions
-
-```dart
-enum HoverIconPosition {
-  topLeft,      // Icons in top-left corner
-  topRight,     // Icons in top-right corner (default)
-  bottomLeft,   // Icons in bottom-left corner
-  bottomRight,  // Icons in bottom-right corner
-  topCenter,    // Icons centered at top
-  bottomCenter, // Icons centered at bottom
-}
-```
-
-### Layout Options
-
-```dart
-enum HoverIconLayout {
-  auto,    // Smart layout: vertical for corners, horizontal for center
-  row,     // Always horizontal layout
-  column,  // Always vertical layout
-}
-```
-
-### Customization Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `downloadIcon` | `Widget?` | `null` | Custom download icon widget |
-| `copyIcon` | `Widget?` | `null` | Custom copy icon widget |
-| `hoverIconPosition` | `HoverIconPosition` | `topRight` | Position of hover icons |
-| `hoverIconLayout` | `HoverIconLayout` | `auto` | Layout direction (row/column) |
-| `enableHoverIcons` | `bool` | `true` | Enable/disable hover functionality |
-| `hoverIconSpacing` | `double` | `8.0` | Space between icons |
-| `hoverIconPadding` | `EdgeInsetsGeometry` | `EdgeInsets.zero` | Padding around icons |
-| `onDownloadTap` | `VoidCallback?` | `null` | Custom download action |
-| `onCopyTap` | `VoidCallback?` | `null` | Custom copy action |
-
-## Image Data Access (v0.3.0+)
-
-### ImageDataInfo Class
-
-```dart
-class ImageDataInfo {
-  final Uint8List imageBytes;  // Raw PNG image data
-  final int width;             // Image width in pixels
-  final int height;            // Image height in pixels
-  final String url;            // Original image URL
-}
-```
-
-### Clipboard & Download Methods
-
-```dart
-// Copy image to system clipboard (for Ctrl+V pasting)
-bool success = await ImageClipboardHelper.copyImageToClipboard(imageData);
-
-// Download image as PNG file
-bool success = await ImageClipboardHelper.downloadImage(imageData);
-```
+**When to use each method:**
+- **`copyImageToClipboard`**: When using `CustomNetworkImage` with `onImageLoaded` callback
+- **`copyImageBytesToClipboard`**: When working with raw image data from other sources (camera, file picker, image processing, etc.)
+- **Both methods**: Provide identical clipboard functionality with different input formats
 
 ### Platform Support
 

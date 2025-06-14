@@ -76,4 +76,78 @@ class ImageDataInfo {
     required this.height,
     required this.url,
   });
+}
+
+/// Result of copy operations with detailed status information
+class CopyResult {
+  final bool isSuccess;
+  final bool isWaiting;
+  final String? message;
+
+  const CopyResult._({
+    required this.isSuccess,
+    required this.isWaiting,
+    this.message,
+  });
+
+  /// Create a successful copy result
+  factory CopyResult.success([String? message]) => CopyResult._(
+    isSuccess: true,
+    isWaiting: false,
+    message: message ?? 'Image copied successfully',
+  );
+
+  /// Create a failed copy result
+  factory CopyResult.failed(String message) => CopyResult._(
+    isSuccess: false,
+    isWaiting: false,
+    message: message,
+  );
+
+  /// Create a waiting copy result (image still loading)
+  factory CopyResult.waiting(String message) => CopyResult._(
+    isSuccess: false,
+    isWaiting: true,
+    message: message,
+  );
+
+  /// Whether the operation was successful
+  bool get isFailure => !isSuccess && !isWaiting;
+}
+
+/// Status of copy functionality availability
+class CopyAvailabilityStatus {
+  final bool isAvailable;
+  final bool isWaiting;
+  final String message;
+
+  const CopyAvailabilityStatus._({
+    required this.isAvailable,
+    required this.isWaiting,
+    required this.message,
+  });
+
+  /// Copy functionality is available
+  factory CopyAvailabilityStatus.available(String message) => CopyAvailabilityStatus._(
+    isAvailable: true,
+    isWaiting: false,
+    message: message,
+  );
+
+  /// Copy functionality is unavailable
+  factory CopyAvailabilityStatus.unavailable(String message) => CopyAvailabilityStatus._(
+    isAvailable: false,
+    isWaiting: false,
+    message: message,
+  );
+
+  /// Copy functionality is waiting (e.g., image still loading)
+  factory CopyAvailabilityStatus.waiting(String message) => CopyAvailabilityStatus._(
+    isAvailable: false,
+    isWaiting: true,
+    message: message,
+  );
+
+  /// Whether copy is unavailable (not waiting, just unavailable)
+  bool get isUnavailable => !isAvailable && !isWaiting;
 } 

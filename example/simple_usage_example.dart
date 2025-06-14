@@ -5,7 +5,11 @@ import 'package:flutter_cors_image/src/image_clipboard_helper.dart';
 import 'package:flutter_cors_image/src/custom_network_image_controller.dart';
 import 'package:flutter_cors_image/src/types.dart';
 
+
+
 class ComprehensiveImageExample extends StatefulWidget {
+  const ComprehensiveImageExample({super.key});
+
   @override
   _ComprehensiveImageExampleState createState() => _ComprehensiveImageExampleState();
 }
@@ -31,6 +35,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   @override
   void initState() {
     super.initState();
+    
     // Initialize controllers
     _mainController = CustomNetworkImageController();
     _exampleController = CustomNetworkImageController();
@@ -83,38 +88,38 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Controller + Hover Icons Demo'),
+        title: const Text('Controller + Hover Icons Demo'),
         backgroundColor: Colors.blue,
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // NEW: Controller Status Panel
             _buildControllerStatusPanel(),
             
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             
             // Control Panel
             _buildControlPanel(),
             
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             
             // Main Image with Controller
             _buildMainImageDemo(),
             
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             
             // Controller Actions
             _buildControllerActionsPanel(),
             
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             
             // Multiple Controllers Example
             _buildMultipleControllersExample(),
             
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             
             // Position Examples Grid
             _buildPositionExamples(),
@@ -127,12 +132,12 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   Widget _buildControllerStatusPanel() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('📊 Controller Status', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 12),
+            const Text('📊 Controller Status', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
             
             Row(
               children: [
@@ -140,7 +145,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Status: $_controllerStatus', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Status: $_controllerStatus', style: const TextStyle(fontWeight: FontWeight.bold)),
                       Text('Last Action: $_lastAction'),
                       Text('Has Image Data: ${_mainController.hasImageData}'),
                       Text('Is Loading: ${_mainController.isLoading}'),
@@ -169,13 +174,13 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   Widget _buildControllerActionsPanel() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('🎮 Controller Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('🎮 Controller Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             Text('Control the image externally using the controller', style: TextStyle(color: Colors.grey[600])),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             
             Wrap(
               spacing: 12,
@@ -186,8 +191,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                     setState(() => _lastAction = 'Reload');
                     _mainController.reload();
                   },
-                  icon: Icon(Icons.refresh),
-                  label: Text('Reload Image'),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Reload Image'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 ),
                 
@@ -208,8 +213,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                       );
                     }
                   } : null,
-                  icon: Icon(Icons.download),
-                  label: Text('Download'),
+                  icon: const Icon(Icons.download),
+                  label: const Text('Download'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                 ),
                 
@@ -230,8 +235,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                       );
                     }
                   } : null,
-                  icon: Icon(Icons.copy),
-                  label: Text('Copy'),
+                  icon: const Icon(Icons.copy),
+                  label: const Text('Copy'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 ),
                 
@@ -239,7 +244,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                   onPressed: () async {
                     setState(() => _lastAction = 'Wait for Load');
                     try {
-                      final imageData = await _mainController.waitForLoad(timeout: Duration(seconds: 10));
+                      final imageData = await _mainController.waitForLoad(timeout: const Duration(seconds: 10));
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('✅ Image loaded: ${imageData.width}x${imageData.height}'),
@@ -252,8 +257,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                       );
                     }
                   },
-                  icon: Icon(Icons.hourglass_empty),
-                  label: Text('Wait for Load'),
+                  icon: const Icon(Icons.hourglass_empty),
+                  label: const Text('Wait for Load'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
                 ),
               ],
@@ -267,50 +272,50 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   Widget _buildMultipleControllersExample() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('🔄 Multiple Controllers Example', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('🔄 Multiple Controllers Example', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             Text('Different images with separate controllers', style: TextStyle(color: Colors.grey[600])),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             
             Row(
               children: [
                 Expanded(
                   child: Column(
                     children: [
-                      Text('Controller 1', style: TextStyle(fontWeight: FontWeight.bold)),
-                      SizedBox(height: 8),
+                      const Text('Controller 1', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
                       AspectRatio(
                         aspectRatio: 1.5,
                         child: CustomNetworkImage(
-                          url: 'https://cdn-cs-dev.s3.ap-southeast-1.amazonaws.com/2025/6/12/image/37238509fdda717430ad94a638989f15',
+                          url: 'https://picsum.photos/400/300?random=7',
                           controller: _gridController1,
                           fit: BoxFit.cover,
-                          downloadIcon: Icon(Icons.download, color: Colors.white, size: 12),
-                          copyIcon: Icon(Icons.copy, color: Colors.white, size: 12),
+                          downloadIcon: const Icon(Icons.download, color: Colors.white, size: 12),
+                          copyIcon: const Icon(Icons.copy, color: Colors.white, size: 12),
                           hoverIconPosition: HoverIconPosition.topLeft,
-                          hoverIconPadding: EdgeInsets.all(4),
+                          hoverIconPadding: const EdgeInsets.all(4),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           IconButton(
                             onPressed: () => _gridController1.reload(),
-                            icon: Icon(Icons.refresh, size: 16),
+                            icon: const Icon(Icons.refresh, size: 16),
                             tooltip: 'Reload',
                           ),
                           IconButton(
                             onPressed: _gridController1.hasImageData ? () => _gridController1.downloadImage() : null,
-                            icon: Icon(Icons.download, size: 16),
+                            icon: const Icon(Icons.download, size: 16),
                             tooltip: 'Download',
                           ),
                           IconButton(
                             onPressed: _gridController1.hasImageData ? () => _gridController1.copyImageToClipboard() : null,
-                            icon: Icon(Icons.copy, size: 16),
+                            icon: const Icon(Icons.copy, size: 16),
                             tooltip: 'Copy',
                           ),
                         ],
@@ -318,41 +323,41 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                     ],
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     children: [
-                      Text('Controller 2', style: TextStyle(fontWeight: FontWeight.bold)),
-                      SizedBox(height: 8),
+                      const Text('Controller 2', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
                       AspectRatio(
                         aspectRatio: 1.5,
                         child: CustomNetworkImage(
-                          url: 'https://cdn-cs-dev.s3.ap-southeast-1.amazonaws.com/2025/6/12/image/37238509fdda717430ad94a638989f15',
+                          url: 'https://picsum.photos/400/300?random=8',
                           controller: _gridController2,
                           fit: BoxFit.cover,
-                          downloadIcon: Icon(Icons.download, color: Colors.white, size: 12),
-                          copyIcon: Icon(Icons.copy, color: Colors.white, size: 12),
+                          downloadIcon: const Icon(Icons.download, color: Colors.white, size: 12),
+                          copyIcon: const Icon(Icons.copy, color: Colors.white, size: 12),
                           hoverIconPosition: HoverIconPosition.bottomRight,
-                          hoverIconPadding: EdgeInsets.all(4),
+                          hoverIconPadding: const EdgeInsets.all(4),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           IconButton(
                             onPressed: () => _gridController2.reload(),
-                            icon: Icon(Icons.refresh, size: 16),
+                            icon: const Icon(Icons.refresh, size: 16),
                             tooltip: 'Reload',
                           ),
                           IconButton(
                             onPressed: _gridController2.hasImageData ? () => _gridController2.downloadImage() : null,
-                            icon: Icon(Icons.download, size: 16),
+                            icon: const Icon(Icons.download, size: 16),
                             tooltip: 'Download',
                           ),
                           IconButton(
                             onPressed: _gridController2.hasImageData ? () => _gridController2.copyImageToClipboard() : null,
-                            icon: Icon(Icons.copy, size: 16),
+                            icon: const Icon(Icons.copy, size: 16),
                             tooltip: 'Copy',
                           ),
                         ],
@@ -371,15 +376,15 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   Widget _buildControlPanel() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('🎛️ Control Panel', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 12),
+            const Text('🎛️ Control Panel', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
             
             // Position Selector
-            Text('Icon Position:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Icon Position:', style: TextStyle(fontWeight: FontWeight.bold)),
             Wrap(
               spacing: 8,
               children: HoverIconPosition.values.map((position) {
@@ -393,10 +398,10 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
               }).toList(),
             ),
             
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             
             // Layout Selector
-            Text('Icon Layout:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Icon Layout:', style: TextStyle(fontWeight: FontWeight.bold)),
             Wrap(
               spacing: 8,
               children: HoverIconLayout.values.map((layout) {
@@ -410,7 +415,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
               }).toList(),
             ),
             
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             
             // Settings
             Row(
@@ -430,7 +435,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                     ],
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,7 +455,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
             ),
             
             SwitchListTile(
-              title: Text('Enable Hover Icons'),
+              title: const Text('Enable Hover Icons'),
               value: _enableHoverIcons,
               onChanged: (value) => setState(() => _enableHoverIcons = value),
             ),
@@ -463,20 +468,20 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   Widget _buildMainImageDemo() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('🖼️ Main Demo Image with Controller', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('🖼️ Main Demo Image with Controller', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             Text('Hover over the image to see icons in action!', style: TextStyle(color: Colors.grey[600])),
             Text('• Download icon: Saves PNG file to your computer', style: TextStyle(color: Colors.blue[600], fontSize: 12)),
             Text('• Copy icon: Copies image to clipboard for pasting (Ctrl+V)', style: TextStyle(color: Colors.green[600], fontSize: 12)),
             Text('• Controller: External control available via buttons below', style: TextStyle(color: Colors.purple[600], fontSize: 12)),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             
             Center(
               child: CustomNetworkImage(
-                url: 'https://cdn-cs-dev.s3.ap-southeast-1.amazonaws.com/2025/6/12/image/37238509fdda717430ad94a638989f15',
+                url: 'https://picsum.photos/400/300?random=main',
                 width: 400,
                 height: 300,
                 fit: BoxFit.cover,
@@ -496,7 +501,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                 // ✅ Custom Callbacks (still work alongside controller)
                 onDownloadTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                    const SnackBar(
                       content: Text('🔥 Custom Download Action Triggered!'),
                       backgroundColor: Colors.blue,
                     ),
@@ -505,7 +510,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                 },
                 onCopyTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                    const SnackBar(
                       content: Text('🔥 Custom Copy Action Triggered!'),
                       backgroundColor: Colors.green,
                     ),
@@ -535,7 +540,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           CircularProgressIndicator(value: progress?.progress),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
                           Text(
                             progress?.progress != null 
                               ? 'Loading ${(progress!.progress! * 100).toInt()}%'
@@ -557,23 +562,30 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
   Widget _buildPositionExamples() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('📍 Position Examples', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            SizedBox(height: 12),
+            const Text('📍 Position Examples', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Hover over images to see icons in different positions', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            const SizedBox(height: 12),
             
-            GridView.count(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              crossAxisCount: 3,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.2,
-              children: HoverIconPosition.values.map((position) {
-                return _buildPositionExample(position);
-              }).toList(),
+            // Use ListView.builder for better performance with many images
+            SizedBox(
+              height: 320, // Fixed height for the grid area
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.2,
+                ),
+                itemCount: HoverIconPosition.values.length,
+                itemBuilder: (context, index) {
+                  final position = HoverIconPosition.values[index];
+                  return _buildPositionExample(position, index);
+                },
+              ),
             ),
           ],
         ),
@@ -581,24 +593,34 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
     );
   }
   
-  Widget _buildPositionExample(HoverIconPosition position) {
+  Widget _buildPositionExample(HoverIconPosition position, int index) {
+    // Use different images to reduce server load and improve loading
+    final imageUrls = [
+      'https://picsum.photos/300/200?random=1',
+      'https://picsum.photos/300/200?random=2', 
+      'https://picsum.photos/300/200?random=3',
+      'https://picsum.photos/300/200?random=4',
+      'https://picsum.photos/300/200?random=5',
+      'https://picsum.photos/300/200?random=6',
+    ];
+    
     return Column(
       children: [
-        Text(position.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-        SizedBox(height: 4),
+        Text(position.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        const SizedBox(height: 4),
         Expanded(
           child: CustomNetworkImage(
-            url: 'https://cdn-cs-dev.s3.ap-southeast-1.amazonaws.com/2025/6/12/image/37238509fdda717430ad94a638989f15',
+            url: imageUrls[index % imageUrls.length],
             fit: BoxFit.cover,
             
-            downloadIcon: Icon(Icons.download, color: Colors.white, size: 14),
-            copyIcon: Icon(Icons.copy, color: Colors.white, size: 14),
+            downloadIcon: const Icon(Icons.download, color: Colors.white, size: 14),
+            copyIcon: const Icon(Icons.copy, color: Colors.white, size: 14),
             hoverIconPosition: position,
-            hoverIconPadding: EdgeInsets.all(6),
+            hoverIconPadding: const EdgeInsets.all(6),
             hoverIconSpacing: 4,
             
             onImageLoaded: (imageData) {
-              print('Example image loaded for $position');
+              // Removed debug print for performance
             },
           ),
         ),
@@ -613,7 +635,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
           colors: [Colors.blue[400]!, Colors.blue[600]!],
         ),
         borderRadius: BorderRadius.circular(6),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Colors.black26,
             blurRadius: 3,
@@ -621,8 +643,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
           ),
         ],
       ),
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.download, color: Colors.white, size: 16),
@@ -640,7 +662,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
           colors: [Colors.green[400]!, Colors.green[600]!],
         ),
         borderRadius: BorderRadius.circular(6),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Colors.black26,
             blurRadius: 3,
@@ -648,8 +670,8 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
           ),
         ],
       ),
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.copy, color: Colors.white, size: 16),

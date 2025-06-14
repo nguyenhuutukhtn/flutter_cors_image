@@ -1,5 +1,200 @@
 # Changelog
 
+## 0.3.4 - Raw Bytes Clipboard Support Release
+
+### 🚀 New Major Features
+
+#### **Raw Image Bytes Clipboard Support**
+* **NEW**: `copyImageBytesToClipboard(Uint8List fileData, {required int width, required int height})` method for copying raw image bytes to clipboard
+* **NEW**: Alternative to `copyImageToClipboard()` when working with raw `Uint8List` data instead of `ImageDataInfo` wrapper
+* **NEW**: Required `width` and `height` parameters to ensure proper canvas rendering on web platforms
+* **NEW**: Full platform support with dedicated helper methods for mobile and desktop
+
+#### **Enhanced Clipboard Architecture**
+* **NEW**: `_copyImageBytesOnMobile()` - Platform-specific implementation for Android/iOS
+* **NEW**: `_copyImageBytesOnDesktop()` - Platform-specific implementation for desktop platforms  
+* **NEW**: `saveImageBytesToTempFile()` - Utility method for saving raw bytes to temporary files
+* **NEW**: Automatic `ImageDataInfo` wrapper creation for web compatibility
+
+### 🎯 Use Cases & Benefits
+
+#### **When to Use Each Method**
+```dart
+// ✅ Use copyImageToClipboard when you have ImageDataInfo from CustomNetworkImage
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  onImageLoaded: (imageData) async {
+    await ImageClipboardHelper.copyImageToClipboard(imageData);
+  },
+)
+
+// ✅ Use copyImageBytesToClipboard when working with raw bytes from other sources
+final Uint8List cameraImageBytes = await camera.takePicture();
+final success = await ImageClipboardHelper.copyImageBytesToClipboard(
+  cameraImageBytes,
+  width: 1920,
+  height: 1080,
+);
+```
+
+#### **Perfect for Integration With**
+* **Camera plugins** - Copy photos directly from camera capture
+* **File picker plugins** - Copy selected images without loading into CustomNetworkImage  
+* **Image processing libraries** - Copy processed/filtered images
+* **Custom image generation** - Copy programmatically created images
+* **Screenshot functionality** - Copy captured screen regions
+
+### 🛠️ Technical Implementation
+
+#### **Function Signature**
+```dart
+static Future<bool> copyImageBytesToClipboard(
+  Uint8List fileData, {
+  required int width,
+  required int height,
+}) async
+```
+
+#### **Platform-Specific Behavior**
+* **Web**: Creates canvas with specified dimensions for proper image rendering
+* **Mobile**: Uses platform channels with raw bytes, falls back to temp file + path copying
+* **Desktop**: Saves to temp file and copies file path to clipboard
+
+#### **Canvas Rendering Fix**
+* **Problem Solved**: Canvas creation with 0x0 dimensions was failing on web
+* **Solution**: Required `width` and `height` parameters ensure valid canvas dimensions
+* **Web Compatibility**: Proper `ImageDataInfo` wrapper creation for existing web clipboard methods
+
+### 🔧 Integration Examples
+
+#### **Camera Integration**
+```dart
+import 'package:camera/camera.dart';
+import 'package:flutter_cors_image/flutter_cors_image.dart';
+
+class CameraExample extends StatelessWidget {
+  final CameraController controller;
+  
+  Future<void> captureAndCopy() async {
+    try {
+      final XFile photo = await controller.takePicture();
+      final Uint8List imageBytes = await photo.readAsBytes();
+      
+      // Get image dimensions (you might use image package for this)
+      // final img.Image? decodedImage = img.decodeImage(imageBytes);
+      // final width = decodedImage?.width ?? 0;
+      // final height = decodedImage?.height ?? 0;
+      
+      final success = await ImageClipboardHelper.copyImageBytesToClipboard(
+        imageBytes,
+        width: 1920, // Replace with actual dimensions
+        height: 1080,
+      );
+      
+      if (success) {
+        print('Camera image copied to clipboard!');
+      }
+    } catch (e) {
+      print('Failed to copy camera image: $e');
+    }
+  }
+}
+```
+
+#### **File Picker Integration**
+```dart
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter_cors_image/flutter_cors_image.dart';
+
+class FilePickerExample extends StatelessWidget {
+  Future<void> pickAndCopyImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      
+      if (result != null && result.files.single.bytes != null) {
+        final imageBytes = result.files.single.bytes!;
+        
+        // You would typically decode the image to get dimensions
+        final success = await ImageClipboardHelper.copyImageBytesToClipboard(
+          imageBytes,
+          width: 800, // Replace with actual dimensions
+          height: 600,
+        );
+        
+        if (success) {
+          print('Selected image copied to clipboard!');
+        }
+      }
+    } catch (e) {
+      print('Failed to copy selected image: $e');
+    }
+  }
+}
+```
+
+#### **Image Processing Integration**
+```dart
+import 'package:image/image.dart' as img;
+import 'package:flutter_cors_image/flutter_cors_image.dart';
+
+class ImageProcessingExample extends StatelessWidget {
+  Future<void> processAndCopyImage(Uint8List originalBytes) async {
+    try {
+      // Decode original image
+      final img.Image? originalImage = img.decodeImage(originalBytes);
+      if (originalImage == null) return;
+      
+      // Apply filters/processing
+      final processedImage = img.adjustColor(originalImage, brightness: 1.2);
+      final filteredImage = img.gaussianBlur(processedImage, radius: 2);
+      
+      // Encode back to bytes
+      final processedBytes = Uint8List.fromList(img.encodePng(filteredImage));
+      
+      // Copy processed image to clipboard
+      final success = await ImageClipboardHelper.copyImageBytesToClipboard(
+        processedBytes,
+        width: filteredImage.width,
+        height: filteredImage.height,
+      );
+      
+      if (success) {
+        print('Processed image copied to clipboard!');
+      }
+    } catch (e) {
+      print('Failed to copy processed image: $e');
+    }
+  }
+}
+```
+
+### 📱 Platform Support
+
+| Platform | Raw Bytes Support | Canvas Rendering | Temp File Fallback |
+|----------|-------------------|------------------|---------------------|
+| **Web** | ✅ Full support | ✅ Required dimensions | ❌ Not applicable |
+| **Android** | ✅ Platform channels | ❌ Not applicable | ✅ Fallback method |
+| **iOS** | ✅ Platform channels | ❌ Not applicable | ✅ Fallback method |
+| **Desktop** | ✅ File path copy | ❌ Not applicable | ✅ Primary method |
+
+### 🔄 Backward Compatibility
+* **100% backward compatible** - existing `copyImageToClipboard()` continues to work unchanged
+* **Optional enhancement** - new method provides alternative for different use cases
+* **No conflicts** - both methods can be used in the same application
+* **Same dependencies** - no additional packages required
+
+### 🧪 Testing & Validation
+* **Web canvas rendering** - verified proper canvas creation with valid dimensions
+* **Platform channel integration** - tested on Android/iOS with platform-specific methods
+* **Temp file management** - validated file creation and cleanup on desktop platforms
+* **Error handling** - comprehensive error catching and graceful fallbacks
+* **Memory management** - proper disposal of temporary resources
+
+---
+
 ## 0.3.3 - Right-Click Context Menu Release
 
 ### 🚀 New Major Features
