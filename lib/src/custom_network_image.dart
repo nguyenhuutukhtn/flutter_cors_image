@@ -4,15 +4,14 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:extended_image/extended_image.dart';
-import 'web_image_loader.dart' if (dart.library.io) 'stub_image_loader.dart';
+import 'web_image_loader.dart' if (dart.library.io) 'stub_image_loader.dart' as image_loader;
 import 'image_clipboard_helper.dart';
 import 'types.dart';
 import 'custom_network_image_controller.dart';
 import 'disable_web_context_menu.dart';
 import 'image_context_menu.dart';
-// Web-specific imports for CORS workaround
-import 'dart:html' as html show document;
-import 'dart:js' as js show context, allowInterop, JsObject;
+// Import context menu helper for openUrlInNewTab function
+import 'web_context_menu_helper.dart' if (dart.library.io) 'stub_context_menu_helper.dart';
 
 /// A network image widget that handles problematic images by falling back to HTML img tag
 /// when the standard Flutter image loader fails.
@@ -307,7 +306,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     if (kIsWeb) {
       // Register the tap callback if we have one
       if (widget.onTap != null) {
-        setHtmlImageTapCallback(_viewType, () {
+        image_loader.setHtmlImageTapCallback(_viewType, () {
           if (widget.onTap != null) {
             widget.onTap!();
           }
@@ -315,7 +314,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       }
       
       // NEW: Register HTML error callback
-      setHtmlImageErrorCallback(_viewType, () {
+      image_loader.setHtmlImageErrorCallback(_viewType, () {
         if (mounted) {
           setState(() {
             _htmlError = true;
@@ -331,7 +330,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       });
       
       // NEW: Register HTML success callback
-      setHtmlImageSuccessCallback(_viewType, () {
+      image_loader.setHtmlImageSuccessCallback(_viewType, () {
         if (mounted) {
           setState(() {
             _waitingForHtml = false; // Hide loading overlay
@@ -343,7 +342,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         }
       });
       
-      registerHtmlImageFactory(
+      image_loader.registerHtmlImageFactory(
         _viewType, 
         widget.url,
       );
@@ -376,17 +375,17 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     if (needsViewUpdate && kIsWeb && _loadError) {
       // Clean up old references
-      removeHtmlImageTapCallback(_viewType);
-      removeHtmlImageErrorCallback(_viewType);
-      removeHtmlImageSuccessCallback(_viewType);
-      cleanupHtmlElement(_viewType);
+      image_loader.removeHtmlImageTapCallback(_viewType);
+      image_loader.removeHtmlImageErrorCallback(_viewType);
+      image_loader.removeHtmlImageSuccessCallback(_viewType);
+      image_loader.cleanupHtmlElement(_viewType);
       
       // Create new view type
       final newViewType = 'html-image-${widget.uniqueId ?? widget.url.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
       
       // Register new callback and factory
       if (widget.onTap != null) {
-        setHtmlImageTapCallback(newViewType, () {
+        image_loader.setHtmlImageTapCallback(newViewType, () {
           if (widget.onTap != null) {
             widget.onTap!();
           }
@@ -394,7 +393,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       }
       
       // Register new error callback
-      setHtmlImageErrorCallback(newViewType, () {
+      image_loader.setHtmlImageErrorCallback(newViewType, () {
         if (mounted) {
           setState(() {
             _htmlError = true;
@@ -404,7 +403,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       });
 
       // Register new success callback
-      setHtmlImageSuccessCallback(newViewType, () {
+      image_loader.setHtmlImageSuccessCallback(newViewType, () {
         if (mounted) {
           setState(() {
             _waitingForHtml = false; // Hide loading overlay
@@ -416,7 +415,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         }
       });
 
-      registerHtmlImageFactory(newViewType, widget.url);
+      image_loader.registerHtmlImageFactory(newViewType, widget.url);
       
       // Update view type
       _viewType = newViewType;
@@ -446,13 +445,13 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     // If onTap changed, update the callback
     if (oldWidget.onTap != widget.onTap && kIsWeb && _loadError) {
       if (widget.onTap != null) {
-        setHtmlImageTapCallback(_viewType, () {
+        image_loader.setHtmlImageTapCallback(_viewType, () {
           if (widget.onTap != null) {
             widget.onTap!();
           }
         });
       } else {
-        removeHtmlImageTapCallback(_viewType);
+        image_loader.removeHtmlImageTapCallback(_viewType);
       }
     }
     
@@ -471,20 +470,13 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     // Clean up HTML resources
     if (kIsWeb) {
-      removeHtmlImageTapCallback(_viewType);
-      removeHtmlImageErrorCallback(_viewType);
-      removeHtmlImageSuccessCallback(_viewType);
-      cleanupHtmlElement(_viewType);
+      image_loader.removeHtmlImageTapCallback(_viewType);
+      image_loader.removeHtmlImageErrorCallback(_viewType);
+      image_loader.removeHtmlImageSuccessCallback(_viewType);
+      image_loader.cleanupHtmlElement(_viewType);
       
       // NEW: Clean up JavaScript fetch function to prevent memory leaks
-      final functionName = 'fetchImageBytes${widget.url.hashCode}';
-      try {
-        if (js.context[functionName] != null) {
-          js.context.deleteProperty(functionName);
-        }
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      image_loader.cleanupCorsFunction(widget.url);
     }
     
     // Remove transformation listener
@@ -516,7 +508,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       // Only update if we're using HTML fallback and have a transformation controller
       final matrix = widget.transformationController!.value;
       if (_lastTransformation != matrix) {
-        updateHtmlImageTransform(_viewType, matrix);
+        image_loader.updateHtmlImageTransform(_viewType, matrix);
         _lastTransformation = matrix;
       }
     }
@@ -528,7 +520,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     // This is called when the controller value changes programmatically
     final matrix = widget.transformationController!.value;
-    updateHtmlImageTransform(_viewType, matrix);
+    image_loader.updateHtmlImageTransform(_viewType, matrix);
     _lastTransformation = matrix;
   }
 
@@ -582,7 +574,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     try {
       // Attempt to fetch image bytes with progress tracking
       print('[CustomNetworkImage] Attempting to fetch image bytes via CORS workaround');
-      final imageBytes = await _fetchImageBytesWithCors(
+      final imageBytes = await image_loader.fetchImageBytesWithCors(
         widget.url,
         onProgress: (progress) {
           if (mounted) {
@@ -857,7 +849,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
               stream.removeListener(listener);
               
               // Try CORS workaround when toByteData fails
-              final corsBytes = await _fetchImageBytesWithCors(widget.url);
+              final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url);
               completer.complete(corsBytes);
             }
           } catch (e) {
@@ -865,7 +857,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             
             // Try CORS workaround when toByteData throws an exception
             try {
-              final corsBytes = await _fetchImageBytesWithCors(widget.url);
+              final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url);
               completer.complete(corsBytes);
             } catch (corsError) {
               completer.complete(null);
@@ -885,7 +877,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     } catch (e) {
       // Last resort: try CORS workaround
       try {
-        final corsBytes = await _fetchImageBytesWithCors(widget.url);
+                    final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url);
         return corsBytes;
       } catch (corsError) {
         return null;
@@ -893,234 +885,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     }
   }
 
-  // NEW: Fetch image bytes directly using fetch API with multiple CORS strategies to bypass restrictions
-  Future<Uint8List?> _fetchImageBytesWithCors(String imageUrl, {Function(double)? onProgress}) async {
-    if (!kIsWeb) {
-      return null;
-    }
-    
-    try {
-      // Use fetch API with multiple fallback strategies to avoid preflight requests
-      final completer = Completer<Uint8List?>();
-      
-      // Check if the function already exists in window to avoid duplicate scripts
-      final functionName = 'fetchImageBytes${widget.url.hashCode}';
-      final existingFunction = js.context[functionName];
-      
-      if (existingFunction == null) {
-        final script = html.document.createElement('script');
-        script.text = '''
-          window.$functionName = async function(progressCallback) {
-            try {
-              let response;
-              let usedCors = false;
-              
-              // Strategy 1: Try simple fetch first (no preflight)
-              try {
-                response = await fetch('$imageUrl', {
-                  method: 'GET',
-                  cache: 'no-cache'
-                  // No custom headers to avoid preflight
-                });
-                
-                if (response.ok && response.type !== 'opaque') {
-                  usedCors = true;
-                }
-              } catch (e) {
-                response = null;
-              }
-              
-              // Strategy 2: Try no-cors mode if simple fetch failed
-              if (!response || !response.ok) {
-                try {
-                  response = await fetch('$imageUrl', {
-                    method: 'GET',
-                    mode: 'no-cors',
-                    cache: 'no-cache'
-                  });
-                  usedCors = false; // no-cors means we can't read the response
-                } catch (e) {
-                  response = null;
-                }
-              }
-              
-              // Strategy 3: Try CORS mode as last resort
-              if (!response || (!response.ok && response.type !== 'opaque')) {
-                try {
-                  response = await fetch('$imageUrl', {
-                    method: 'GET',
-                    mode: 'cors',
-                    cache: 'no-cache'
-                  });
-                  usedCors = true;
-                } catch (e) {
-                  response = null;
-                }
-              }
-              
-              if (!response) {
-                return null;
-              }
-              
-              // If we got an opaque response (no-cors), we can't read the data
-              // This is a limitation of no-cors mode
-              if (response.type === 'opaque' || !usedCors) {
-                return null;
-              }
-              
-              if (!response.ok) {
-                return null;
-              }
-              
-              // Try to get content length for progress
-              let contentLength = null;
-              try {
-                const contentLengthHeader = response.headers.get('Content-Length');
-                if (contentLengthHeader) {
-                  contentLength = parseInt(contentLengthHeader, 10);
-                }
-              } catch (e) {
-                // Ignore header reading errors
-              }
-              
-              // Read the response as a stream if possible for progress tracking
-              if (response.body && response.body.getReader && progressCallback && contentLength) {
-                const reader = response.body.getReader();
-                const chunks = [];
-                let receivedLength = 0;
-                
-                try {
-                  while (true) {
-                    const { done, value } = await reader.read();
-                    
-                    if (done) break;
-                    
-                    chunks.push(value);
-                    receivedLength += value.length;
-                    
-                    // Report progress
-                    if (progressCallback && contentLength > 0) {
-                      const progress = receivedLength / contentLength;
-                      progressCallback(Math.min(progress, 1.0));
-                    }
-                  }
-                  
-                  // Combine chunks into single array
-                  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-                  const result = new Uint8Array(totalLength);
-                  let offset = 0;
-                  
-                  for (const chunk of chunks) {
-                    result.set(chunk, offset);
-                    offset += chunk.length;
-                  }
-                  
-                  // Convert to regular Array to avoid interop issues
-                  const regularArray = Array.from(result);
-                  return {
-                    data: regularArray,
-                    size: totalLength,
-                    contentType: response.headers.get('Content-Type') || 'image/unknown'
-                  };
-                  
-                } catch (streamError) {
-                  // Fall back to arrayBuffer if streaming fails
-                  try {
-                    const arrayBuffer = await response.arrayBuffer();
-                    const uint8Array = new Uint8Array(arrayBuffer);
-                    const regularArray = Array.from(uint8Array);
-                    return {
-                      data: regularArray,
-                      size: arrayBuffer.byteLength,
-                      contentType: response.headers.get('Content-Type') || 'image/unknown'
-                    };
-                  } catch (arrayBufferError) {
-                    return null;
-                  }
-                }
-              } else {
-                // No streaming support or no progress callback, use arrayBuffer directly
-                try {
-                  const arrayBuffer = await response.arrayBuffer();
-                  const uint8Array = new Uint8Array(arrayBuffer);
-                  const regularArray = Array.from(uint8Array);
-                  return {
-                    data: regularArray,
-                    size: arrayBuffer.byteLength,
-                    contentType: response.headers.get('Content-Type') || 'image/unknown'
-                  };
-                } catch (arrayBufferError) {
-                  return null;
-                }
-              }
-              
-            } catch (error) {
-              return null;
-            }
-          };
-        ''';
-        
-        html.document.head!.append(script);
-      }
-      
-      // Create progress callback
-      final progressCallback = onProgress != null ? js.allowInterop((double progress) {
-        onProgress(progress);
-      }) : null;
-      
-      // Call the function
-      final promise = js.context.callMethod(functionName, [progressCallback]);
-      
-      // Handle the promise
-      final thenCallback = js.allowInterop((result) {
-        if (result != null) {
-          try {
-            // Extract data from the result object
-            final jsResult = result as js.JsObject;
-            final jsArray = jsResult['data'] as js.JsObject;
-            final length = jsArray['length'] as int;
-            final size = jsResult['size'] as int;
-            final contentType = jsResult['contentType'] as String;
-            
-            // Create Dart Uint8List and copy data
-            final dartList = Uint8List(length);
-            for (int i = 0; i < length; i++) {
-              // Convert each element to int (JS numbers to Dart ints)
-              final value = jsArray[i];
-              if (value is num) {
-                dartList[i] = value.toInt();
-              } else {
-                dartList[i] = int.parse(value.toString());
-              }
-            }
-            
-            completer.complete(dartList);
-            
-          } catch (conversionError) {
-            completer.complete(null);
-          }
-        } else {
-          completer.complete(null);
-        }
-      });
-      
-      final catchCallback = js.allowInterop((error) {
-        completer.complete(null);
-      });
-      
-      if (promise != null) {
-        promise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
-      } else {
-        completer.complete(null);
-      }
-      
-      final result = await completer.future;
-      return result;
-      
-    } catch (e) {
-      return null;
-    }
-  }
+
 
   // NEW: Try to extract image data from HTML fallback for copy functionality
   Future<void> _tryExtractImageDataFromHtmlFallback() async {
@@ -1407,7 +1172,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   Widget _buildHtmlImageView() {
     // If we have a transformation controller, make sure it's reflected in HTML
     if (widget.transformationController != null) {
-      updateHtmlImageTransform(_viewType, widget.transformationController!.value);
+              image_loader.updateHtmlImageTransform(_viewType, widget.transformationController!.value);
     }
     
     // Use HtmlElementView for web platforms

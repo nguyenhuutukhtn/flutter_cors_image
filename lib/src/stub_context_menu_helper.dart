@@ -19,4 +19,15 @@ bool isContextMenuPreventionActive() {
 /// Toggle context menu prevention (stub - does nothing on non-web)
 void toggleContextMenuPrevention() {
   // No-op on non-web platforms
+}
+
+/// Download image from URL (stub - always returns false on non-web)
+Future<bool> downloadImageFromUrl(String imageUrl) async {
+  // No-op on non-web platforms
+  return false;
+}
+
+/// Open URL in new tab (stub - does nothing on non-web)
+void openUrlInNewTab(String url) {
+  // No-op on non-web platforms
 } 

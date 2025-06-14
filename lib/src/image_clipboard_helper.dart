@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +6,8 @@ import 'package:flutter/material.dart';
 // Conditional import for web-specific functionality
 import 'types.dart';
 import 'web_clipboard_helper.dart' if (dart.library.io) 'stub_clipboard_helper.dart';
+// Conditional import for io-specific functionality  
+import 'io_clipboard_helper.dart' if (dart.library.html) 'stub_io_clipboard_helper.dart';
 
 /// Helper class for copying images to clipboard
 class ImageClipboardHelper {
@@ -19,12 +20,12 @@ class ImageClipboardHelper {
         // Use web-specific clipboard method
         final result = await copyImageToClipboardWeb(imageData);
         return result;
-      } else if (Platform.isAndroid || Platform.isIOS) {
+      } else if (isMobilePlatform) {
         // Use mobile clipboard method
-        return await _copyImageOnMobile(imageData);
+        return await copyImageOnMobile(imageData);
       } else {
         // Use desktop clipboard method
-        return await _copyImageOnDesktop(imageData);
+        return await copyImageOnDesktop(imageData);
       }
     } catch (e) {
       return false;
@@ -52,12 +53,12 @@ class ImageClipboardHelper {
       if (kIsWeb) {
         // On web, use the Clipboard API for actual clipboard copying
         return await copyImageToClipboardWeb(imageData);
-      } else if (Platform.isAndroid || Platform.isIOS) {
+      } else if (isMobilePlatform) {
         // On mobile, use platform-specific methods
-        return await _copyImageBytesOnMobile(fileData);
+        return await copyImageBytesOnMobile(fileData);
       } else {
         // On desktop, try to copy as image data
-        return await _copyImageBytesOnDesktop(fileData);
+        return await copyImageBytesOnDesktop(fileData);
       }
     } catch (e) {
       return false;
@@ -110,176 +111,13 @@ class ImageClipboardHelper {
     try {
       if (kIsWeb) return null;
       
-      // For mobile/desktop, save to downloads or documents directory
-      // You might want to use plugins like path_provider for proper downloads folder
-      final fileName = 'image_${DateTime.now().millisecondsSinceEpoch}.png';
-      
-      // Use temporary directory as fallback
-      final tempDir = Directory.systemTemp;
-      final filePath = '${tempDir.path}/$fileName';
-      
-      final file = File(filePath);
-      await file.writeAsBytes(imageData.imageBytes);
-      
-      return filePath;
+      return await saveImageToDownloads(imageData);
     } catch (e) {
-      return null;
+      return null;  
     }
   }
 
-  /// Copy image on mobile platforms
-  static Future<bool> _copyImageOnMobile(ImageDataInfo imageData) async {
-    try {
-      // For mobile platforms, we need to use platform channels or plugins
-      // Since Flutter doesn't have built-in image clipboard support for mobile,
-      // we'll save to temp file and copy file path, or use plugins
-      
-      // Method 1: Try to use platform channels for direct image copying
-      try {
-        const platform = MethodChannel('image_clipboard_channel');
-        final result = await platform.invokeMethod('copyImage', {
-          'imageBytes': imageData.imageBytes,
-          'width': imageData.width,
-          'height': imageData.height,
-        });
-        return result == true;
-      } catch (e) {
-        // Platform channel not available
-      }
-      
-      // Method 2: Fallback - save to temp file and copy file path
-      final tempPath = await saveImageToTempFile(imageData);
-      if (tempPath != null) {
-        await Clipboard.setData(ClipboardData(text: 'Image saved to: $tempPath'));
-        return true;
-      }
-      
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
 
-  /// Copy raw image bytes on mobile platforms
-  static Future<bool> _copyImageBytesOnMobile(Uint8List fileData) async {
-    try {
-      // For mobile platforms, we need to use platform channels or plugins
-      // Since Flutter doesn't have built-in image clipboard support for mobile,
-      // we'll save to temp file and copy file path, or use plugins
-      
-      // Method 1: Try to use platform channels for direct image copying
-      try {
-        const platform = MethodChannel('image_clipboard_channel');
-        final result = await platform.invokeMethod('copyImage', {
-          'imageBytes': fileData,
-          'width': 0, // Unknown dimensions
-          'height': 0,
-        });
-        return result == true;
-      } catch (e) {
-        // Platform channel not available
-      }
-      
-      // Method 2: Fallback - save to temp file and copy file path
-      final tempPath = await saveImageBytesToTempFile(fileData);
-      if (tempPath != null) {
-        await Clipboard.setData(ClipboardData(text: 'Image saved to: $tempPath'));
-        return true;
-      }
-      
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Copy image on desktop platforms
-  static Future<bool> _copyImageOnDesktop(ImageDataInfo imageData) async {
-    try {
-      // For desktop platforms, we can try to use system clipboard
-      // This might work on some platforms with proper plugins
-      
-      // Method 1: Try to save to temp file and copy path
-      final tempPath = await saveImageToTempFile(imageData);
-      if (tempPath != null) {
-        // On desktop, some applications can handle file paths
-        await Clipboard.setData(ClipboardData(text: tempPath));
-        return true;
-      }
-      
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Copy raw image bytes on desktop platforms
-  static Future<bool> _copyImageBytesOnDesktop(Uint8List fileData) async {
-    try {
-      // For desktop platforms, we can try to use system clipboard
-      // This might work on some platforms with proper plugins
-      
-      // Method 1: Try to save to temp file and copy path
-      final tempPath = await saveImageBytesToTempFile(fileData);
-      if (tempPath != null) {
-        // On desktop, some applications can handle file paths
-        await Clipboard.setData(ClipboardData(text: tempPath));
-        return true;
-      }
-      
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Save image bytes to temporary file and return path
-  /// Useful for sharing or further processing
-  static Future<String?> saveImageToTempFile(ImageDataInfo imageData) async {
-    try {
-      if (kIsWeb) {
-        // On web, we can't save to file system directly
-        return null;
-      }
-      
-      // Get temporary directory
-      final tempDir = Directory.systemTemp;
-      final fileName = 'image_${DateTime.now().millisecondsSinceEpoch}.png';
-      final filePath = '${tempDir.path}/$fileName';
-      
-      // Write image bytes to file
-      final file = File(filePath);
-      await file.writeAsBytes(imageData.imageBytes);
-      
-      return filePath;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// Save image bytes to temporary file and return path
-  /// Useful for sharing or further processing
-  static Future<String?> saveImageBytesToTempFile(Uint8List fileData) async {
-    try {
-      if (kIsWeb) {
-        // On web, we can't save to file system directly
-        return null;
-      }
-      
-      // Get temporary directory
-      final tempDir = Directory.systemTemp;
-      final fileName = 'image_${DateTime.now().millisecondsSinceEpoch}.png';
-      final filePath = '${tempDir.path}/$fileName';
-      
-      // Write image bytes to file
-      final file = File(filePath);
-      await file.writeAsBytes(fileData);
-      
-      return filePath;
-    } catch (e) {
-      return null;
-    }
-  }
 
   /// Convert image bytes to base64 string
   static String imageToBase64(Uint8List imageBytes) {

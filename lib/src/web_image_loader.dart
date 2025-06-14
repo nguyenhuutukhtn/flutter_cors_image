@@ -3,6 +3,8 @@ import 'dart:async';
 // Import UI correctly for web
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart' show Matrix4;
+import 'dart:js' as js show context, allowInterop, JsObject;
+import 'dart:typed_data';
 
 /// Global callback map to handle taps for specific view IDs
 final Map<String, Function> _htmlImageTapCallbacks = {};
@@ -18,6 +20,241 @@ final Map<String, html.Element> _htmlElements = {};
 
 /// Mapping of viewIds to their timeout timers for cleanup
 final Map<String, Timer> _timeoutTimers = {};
+
+/// Fetch image bytes with CORS workaround for web platforms
+Future<Uint8List?> fetchImageBytesWithCors(String imageUrl, {Function(double)? onProgress}) async {
+  try {
+    // Use fetch API with multiple fallback strategies to avoid preflight requests
+    final completer = Completer<Uint8List?>();
+    
+    // Check if the function already exists in window to avoid duplicate scripts
+    final functionName = 'fetchImageBytes${imageUrl.hashCode}';
+    final existingFunction = js.context[functionName];
+    
+    if (existingFunction == null) {
+      final script = html.document.createElement('script');
+      script.text = '''
+        window.$functionName = async function(progressCallback) {
+          try {
+            let response;
+            let usedCors = false;
+            
+            // Strategy 1: Try simple fetch first (no preflight)
+            try {
+              response = await fetch('$imageUrl', {
+                method: 'GET',
+                cache: 'no-cache'
+                // No custom headers to avoid preflight
+              });
+              
+              if (response.ok && response.type !== 'opaque') {
+                usedCors = true;
+              }
+            } catch (e) {
+              response = null;
+            }
+            
+            // Strategy 2: Try no-cors mode if simple fetch failed
+            if (!response || !response.ok) {
+              try {
+                response = await fetch('$imageUrl', {
+                  method: 'GET',
+                  mode: 'no-cors',
+                  cache: 'no-cache'
+                });
+                usedCors = false; // no-cors means we can't read the response
+              } catch (e) {
+                response = null;
+              }
+            }
+            
+            // Strategy 3: Try CORS mode as last resort
+            if (!response || (!response.ok && response.type !== 'opaque')) {
+              try {
+                response = await fetch('$imageUrl', {
+                  method: 'GET',
+                  mode: 'cors',
+                  cache: 'no-cache'
+                });
+                usedCors = true;
+              } catch (e) {
+                response = null;
+              }
+            }
+            
+            if (!response) {
+              return null;
+            }
+            
+            // If we got an opaque response (no-cors), we can't read the data
+            // This is a limitation of no-cors mode
+            if (response.type === 'opaque' || !usedCors) {
+              return null;
+            }
+            
+            if (!response.ok) {
+              return null;
+            }
+            
+            // Try to get content length for progress
+            let contentLength = null;
+            try {
+              const contentLengthHeader = response.headers.get('Content-Length');
+              if (contentLengthHeader) {
+                contentLength = parseInt(contentLengthHeader, 10);
+              }
+            } catch (e) {
+              // Ignore header reading errors
+            }
+            
+            // Read the response as a stream if possible for progress tracking
+            if (response.body && response.body.getReader && progressCallback && contentLength) {
+              const reader = response.body.getReader();
+              const chunks = [];
+              let receivedLength = 0;
+              
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  
+                  if (done) break;
+                  
+                  chunks.push(value);
+                  receivedLength += value.length;
+                  
+                  // Report progress
+                  if (progressCallback && contentLength > 0) {
+                    const progress = receivedLength / contentLength;
+                    progressCallback(Math.min(progress, 1.0));
+                  }
+                }
+                
+                // Combine chunks into single array
+                const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+                const result = new Uint8Array(totalLength);
+                let offset = 0;
+                
+                for (const chunk of chunks) {
+                  result.set(chunk, offset);
+                  offset += chunk.length;
+                }
+                
+                // Convert to regular Array to avoid interop issues
+                const regularArray = Array.from(result);
+                return {
+                  data: regularArray,
+                  size: totalLength,
+                  contentType: response.headers.get('Content-Type') || 'image/unknown'
+                };
+                
+              } catch (streamError) {
+                // Fall back to arrayBuffer if streaming fails
+                try {
+                  const arrayBuffer = await response.arrayBuffer();
+                  const uint8Array = new Uint8Array(arrayBuffer);
+                  const regularArray = Array.from(uint8Array);
+                  return {
+                    data: regularArray,
+                    size: arrayBuffer.byteLength,
+                    contentType: response.headers.get('Content-Type') || 'image/unknown'
+                  };
+                } catch (arrayBufferError) {
+                  return null;
+                }
+              }
+            } else {
+              // No streaming support or no progress callback, use arrayBuffer directly
+              try {
+                const arrayBuffer = await response.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const regularArray = Array.from(uint8Array);
+                return {
+                  data: regularArray,
+                  size: arrayBuffer.byteLength,
+                  contentType: response.headers.get('Content-Type') || 'image/unknown'
+                };
+              } catch (arrayBufferError) {
+                return null;
+              }
+            }
+            
+          } catch (error) {
+            return null;
+          }
+        };
+      ''';
+      
+      html.document.head!.append(script);
+    }
+    
+    // Create progress callback
+    final progressCallback = onProgress != null ? js.allowInterop((double progress) {
+      onProgress(progress);
+    }) : null;
+    
+    // Call the function
+    final promise = js.context.callMethod(functionName, [progressCallback]);
+    
+    // Handle the promise
+    final thenCallback = js.allowInterop((result) {
+      if (result != null) {
+        try {
+          // Extract data from the result object
+          final jsResult = result as js.JsObject;
+          final jsArray = jsResult['data'] as js.JsObject;
+          final length = jsArray['length'] as int;
+          
+          // Create Dart Uint8List and copy data
+          final dartList = Uint8List(length);
+          for (int i = 0; i < length; i++) {
+            // Convert each element to int (JS numbers to Dart ints)
+            final value = jsArray[i];
+            if (value is num) {
+              dartList[i] = value.toInt();
+            } else {
+              dartList[i] = int.parse(value.toString());
+            }
+          }
+          
+          completer.complete(dartList);
+          
+        } catch (conversionError) {
+          completer.complete(null);
+        }
+      } else {
+        completer.complete(null);
+      }
+    });
+    
+    final catchCallback = js.allowInterop((error) {
+      completer.complete(null);
+    });
+    
+    if (promise != null) {
+      promise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
+    } else {
+      completer.complete(null);
+    }
+    
+    final result = await completer.future;
+    return result;
+    
+  } catch (e) {
+    return null;
+  }
+}
+
+/// Clean up JavaScript function to prevent memory leaks
+void cleanupCorsFunction(String imageUrl) {
+  final functionName = 'fetchImageBytes${imageUrl.hashCode}';
+  try {
+    if (js.context[functionName] != null) {
+      js.context.deleteProperty(functionName);
+    }
+  } catch (e) {
+    // Ignore cleanup errors
+  }
+}
 
 /// Sets the tap callback function for a specific HTML image
 void setHtmlImageTapCallback(String viewId, Function callback) {
@@ -202,7 +439,3 @@ void cleanupHtmlElement(String viewId) {
   _htmlElements.remove(viewId);
 }
 
-/// Opens a URL in a new tab/window (web only)
-void openUrlInNewTab(String url) {
-  html.window.open(url, '_blank');
-} 

@@ -1,58 +1,59 @@
-import 'package:flutter/material.dart' show Matrix4;
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:flutter/material.dart' show Matrix4, VoidCallback;
 
-/// Stub implementation for non-web platforms
-/// This is a no-op as HTML functionality is not used on native platforms
-void registerHtmlImageFactory(String viewId, String url) {
-  // No-op implementation for non-web platforms
+/// Stub implementation for fetchImageBytesWithCors (not available on non-web platforms)
+Future<Uint8List?> fetchImageBytesWithCors(String imageUrl, {Function(double)? onProgress}) async {
+  // Not available on non-web platforms
+  return null;
 }
 
-/// Stub implementation of the tap callback setter for non-web platforms
-void setHtmlImageTapCallback(String viewId, Function callback) {
-  // No-op implementation for non-web platforms
+/// Stub implementation for cleanupCorsFunction (not available on non-web platforms)
+void cleanupCorsFunction(String imageUrl) {
+  // Not available on non-web platforms
 }
 
-/// Stub implementation of the transform updater for non-web platforms
-void updateHtmlImageTransform(String viewId, Matrix4 matrix) {
-  // No-op implementation for non-web platforms
+/// Stub implementation for registerHtmlImageFactory (not available on non-web platforms)
+void registerHtmlImageFactory(String viewType, String url) {
+  // Not available on non-web platforms
 }
 
-/// Stub implementation for removing tap callbacks
-void removeHtmlImageTapCallback(String viewId) {
-  // No-op implementation for non-web platforms
+/// Stub implementation for setHtmlImageTapCallback (not available on non-web platforms)
+void setHtmlImageTapCallback(String viewType, VoidCallback callback) {
+  // Not available on non-web platforms
 }
 
-/// Cleanup HTML elements when no longer needed
-/// This is a stub implementation for non-web platforms
-void cleanupHtmlElement(String viewId) {
-  // This is a stub - only used on web platforms
+/// Stub implementation for removeHtmlImageTapCallback (not available on non-web platforms)
+void removeHtmlImageTapCallback(String viewType) {
+  // Not available on non-web platforms
 }
 
-/// Sets the error callback function for a specific HTML image
-/// This is a stub implementation for non-web platforms
-void setHtmlImageErrorCallback(String viewId, Function callback) {
-  // This is a stub - only used on web platforms
+/// Stub implementation for setHtmlImageErrorCallback (not available on non-web platforms)
+void setHtmlImageErrorCallback(String viewType, VoidCallback callback) {
+  // Not available on non-web platforms
 }
 
-/// Remove an error callback when no longer needed
-/// This is a stub implementation for non-web platforms
-void removeHtmlImageErrorCallback(String viewId) {
-  // This is a stub - only used on web platforms
+/// Stub implementation for removeHtmlImageErrorCallback (not available on non-web platforms)
+void removeHtmlImageErrorCallback(String viewType) {
+  // Not available on non-web platforms
 }
 
-/// Opens a URL in a new tab/window (web only)
-/// This is a stub implementation for non-web platforms
-void openUrlInNewTab(String url) {
-  // This is a stub - only used on web platforms
+/// Stub implementation for setHtmlImageSuccessCallback (not available on non-web platforms)
+void setHtmlImageSuccessCallback(String viewType, VoidCallback callback) {
+  // Not available on non-web platforms
 }
 
-/// Sets the success callback function for a specific HTML image
-/// This is a stub implementation for non-web platforms
-void setHtmlImageSuccessCallback(String viewId, Function callback) {
-  // This is a stub - only used on web platforms
+/// Stub implementation for removeHtmlImageSuccessCallback (not available on non-web platforms)
+void removeHtmlImageSuccessCallback(String viewType) {
+  // Not available on non-web platforms
 }
 
-/// Remove a success callback when no longer needed
-/// This is a stub implementation for non-web platforms
-void removeHtmlImageSuccessCallback(String viewId) {
-  // This is a stub - only used on web platforms
+/// Stub implementation for cleanupHtmlElement (not available on non-web platforms)
+void cleanupHtmlElement(String viewType) {
+  // Not available on non-web platforms
+}
+
+/// Stub implementation for updateHtmlImageTransform (not available on non-web platforms)
+void updateHtmlImageTransform(String viewType, Matrix4 transform) {
+  // Not available on non-web platforms
 } 
