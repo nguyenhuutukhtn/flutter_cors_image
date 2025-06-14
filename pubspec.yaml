@@ -13,7 +13,7 @@ description: A Flutter package that provides image loading solutions for handlin
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.3.4
+version: 0.3.5
 homepage: https://github.com/nguyenhuutukhtn/flutter_cors_image
 repository: https://github.com/nguyenhuutukhtn/flutter_cors_image
 issue_tracker: https://github.com/nguyenhuutukhtn/flutter_cors_image/issues
@@ -33,7 +33,7 @@ dependencies:
     sdk: flutter
   flutter_web_plugins:
     sdk: flutter
-  extended_image: ^8.0.0
+  extended_image: ^9.1.0
   image: ^4.0.0
   web: ^1.0.0
 
@@ -42,7 +42,6 @@ dependencies:
   cupertino_icons: ^1.0.6
   http: ^1.2.2
   intl: ">=0.19.0 <0.21.0"
-  ffmpeg_kit_flutter: ^6.0.3
   path_provider: ^2.1.3
 
 dev_dependencies:

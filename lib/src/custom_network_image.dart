@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:extended_image/extended_image.dart';
@@ -699,11 +698,16 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     }
   }
 
-  // Native/fallback image loading using Flutter's standard approach
+  // Native/fallback image loading using ExtendedImage for better caching and error handling
   void _preloadImageNative() {
-    print('[CustomNetworkImage] Preloading image native');
-    // Create image provider and stream
-    final imageProvider = NetworkImage(widget.url, headers: widget.headers);
+    print('[CustomNetworkImage] Preloading image native with ExtendedImage');
+    // Use ExtendedImage's NetworkImageProvider for better caching and error handling
+    final imageProvider = ExtendedNetworkImageProvider(
+      widget.url, 
+      headers: widget.headers,
+      cache: true,
+      retries: 2,
+    );
     _imageStream = imageProvider.resolve(ImageConfiguration.empty);
     
     // Create our custom listener that tracks progress more reliably

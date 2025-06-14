@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.5 - Platform Compatibility Fix Release
+
+### 🔧 Platform Compatibility Improvements
+* **Fixed Platform Support**: Resolved critical platform compatibility issues that caused 0/6 platform support score
+* **Conditional Imports**: Implemented conditional imports pattern to properly handle platform-specific libraries
+* **Enhanced Image Loading**: Integrated ExtendedImage for better caching, error handling, and retry functionality  
+* **Web/IO Separation**: Created dedicated helper files for web and IO operations with proper stub implementations
+* **Cross-Platform**: Now supports all Flutter platforms (web, Android, iOS, desktop) without compilation errors
+
+### 🛠️ Technical Changes
+* Added conditional imports using `dart.library.io` and `dart.library.html` checks
+* Created platform-specific helper files with stub implementations for unsupported platforms
+* Replaced NetworkImage with ExtendedNetworkImageProvider for improved reliability
+* Removed direct platform-specific imports that caused compatibility issues
+* Enhanced error handling and retry mechanisms across all platforms
+
 ## 0.3.4 - Raw Bytes Clipboard Support Release
 
 ### 🚀 New Major Features
