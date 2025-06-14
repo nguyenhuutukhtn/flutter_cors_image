@@ -14,29 +14,19 @@ class ImageClipboardHelper {
   /// Copy image data to clipboard (for pasting with Ctrl+V)
   /// This copies actual image data that can be pasted as images, not text
   static Future<bool> copyImageToClipboard(ImageDataInfo imageData) async {
-    print('🔍 PROD DEBUG: copyImageToClipboard called');
-    print('🔍 PROD DEBUG: imageData: ${imageData.imageBytes.length} bytes, ${imageData.width}x${imageData.height}, url: ${imageData.url}');
-    print('🔍 PROD DEBUG: kIsWeb: $kIsWeb');
-    
     try {
       if (kIsWeb) {
-        print('🔍 PROD DEBUG: Using web clipboard method');
-        // On web, use the Clipboard API for actual clipboard copying
+        // Use web-specific clipboard method
         final result = await copyImageToClipboardWeb(imageData);
-        print('🔍 PROD DEBUG: Web clipboard result: $result');
         return result;
       } else if (Platform.isAndroid || Platform.isIOS) {
-        print('🔍 PROD DEBUG: Using mobile clipboard method');
-        // On mobile, use platform-specific methods
+        // Use mobile clipboard method
         return await _copyImageOnMobile(imageData);
       } else {
-        print('🔍 PROD DEBUG: Using desktop clipboard method');
-        // On desktop, try to copy as image data
+        // Use desktop clipboard method
         return await _copyImageOnDesktop(imageData);
       }
     } catch (e) {
-      print('❌ PROD DEBUG: copyImageToClipboard exception: $e');
-      print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
       return false;
     }
   }
@@ -77,25 +67,16 @@ class ImageClipboardHelper {
   /// Download image as a file (separate from clipboard copying)
   /// This downloads the image as a PNG file to the user's computer
   static Future<bool> downloadImage(ImageDataInfo imageData) async {
-    print('🔍 PROD DEBUG: downloadImage called');
-    print('🔍 PROD DEBUG: imageData: ${imageData.imageBytes.length} bytes, ${imageData.width}x${imageData.height}, url: ${imageData.url}');
-    print('🔍 PROD DEBUG: kIsWeb: $kIsWeb');
-    
     try {
       if (kIsWeb) {
-        print('🔍 PROD DEBUG: Using web download method');
         // On web, download as file
         final result = await _downloadImageOnWeb(imageData);
-        print('🔍 PROD DEBUG: Web download result: $result');
         return result;
       } else {
-        print('🔍 PROD DEBUG: Using mobile/desktop download method');
         // On mobile/desktop, save to downloads or temp directory
         return await _downloadImageOnMobileDesktop(imageData);
       }
     } catch (e) {
-      print('❌ PROD DEBUG: downloadImage exception: $e');
-      print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
       return false;
     }
   }

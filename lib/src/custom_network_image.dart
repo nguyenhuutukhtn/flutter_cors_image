@@ -520,8 +520,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   }
 
   void _preloadImage() {
-    print('🔍 PROD DEBUG: _preloadImage called for ${widget.url}');
-    
     // Clean up any existing stream
     _cleanupImageStream();
     
@@ -535,31 +533,22 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       _imageData = null; // Reset image data
     });
     
-    print('🔍 PROD DEBUG: Reset loading state for ${widget.url}');
-    
     // Update controller state
     if (widget.controller != null) {
       widget.controller!.updateLoadingState(_loadingState);
       widget.controller!.updateLoadingProgress(_loadingProgress);
       widget.controller!.updateImageData(null);
       widget.controller!.updateError(null);
-      print('🔍 PROD DEBUG: Updated controller state for ${widget.url}');
     }
     
     // Create image provider and stream
     final imageProvider = NetworkImage(widget.url, headers: widget.headers);
     _imageStream = imageProvider.resolve(ImageConfiguration.empty);
     
-    print('🔍 PROD DEBUG: Created image provider and stream for ${widget.url}');
-    
     
     // Create our custom listener that tracks progress more reliably
     _imageStreamListener = ImageStreamListener(
       (ImageInfo info, bool synchronousCall) async {
-        // PRODUCTION DEBUG: Log when image loads successfully
-        print('🔍 PROD DEBUG: Image loaded successfully for ${widget.url}');
-        print('🔍 PROD DEBUG: Image dimensions: ${info.image.width}x${info.image.height}');
-        
         // Image loaded successfully
         if (mounted) {
           setState(() {
@@ -581,11 +570,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
           
           // NEW: Extract image data for copy functionality
           if (widget.onImageLoaded != null || widget.controller != null) {
-            print('🔍 PROD DEBUG: Attempting to extract image data for ${widget.url}');
             try {
               // Get the image bytes
               final Uint8List? imageBytes = await _getImageBytes(imageProvider);
-              print('🔍 PROD DEBUG: _getImageBytes returned: ${imageBytes != null ? '${imageBytes.length} bytes' : 'null'} for ${widget.url}');
               
               if (imageBytes != null) {
                 final imageData = ImageDataInfo(
@@ -595,47 +582,34 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                   url: widget.url,
                 );
                 
-                print('✅ PROD DEBUG: Created ImageDataInfo for ${widget.url}: ${imageData.imageBytes.length} bytes, ${imageData.width}x${imageData.height}');
-                
                 // Store image data and call callback
                 _imageData = imageData;
                 
                 // Update controller
                 if (widget.controller != null) {
                   widget.controller!.updateImageData(imageData);
-                  print('✅ PROD DEBUG: Updated controller with image data for ${widget.url}');
                 }
                 
                 // Call callback if provided
                 if (widget.onImageLoaded != null) {
                   widget.onImageLoaded!(imageData);
-                  print('✅ PROD DEBUG: Called onImageLoaded callback for ${widget.url}');
                 }
               } else {
-                print('❌ PROD DEBUG: Failed to extract image bytes for ${widget.url}');
                 // Update controller with error
                 if (widget.controller != null) {
                   widget.controller!.updateError('Failed to extract image bytes');
                 }
               }
             } catch (e) {
-              print('❌ PROD DEBUG: Error extracting image data for ${widget.url}: $e');
-              print('❌ PROD DEBUG: Error stack trace: ${StackTrace.current}');
               // Error extracting image data
               if (widget.controller != null) {
                 widget.controller!.updateError('Failed to extract image data: $e');
               }
             }
-          } else {
-            print('🔍 PROD DEBUG: Skipping image data extraction (no callback or controller) for ${widget.url}');
           }
         }
       },
       onError: (dynamic error, StackTrace? stackTrace) {
-        // PRODUCTION DEBUG: Log image loading errors
-        print('❌ PROD DEBUG: Image loading error for ${widget.url}: $error');
-        print('❌ PROD DEBUG: Stack trace: $stackTrace');
-        
         // Image failed to load
         if (mounted) {
           setState(() {
@@ -646,15 +620,12 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             _imageData = null; // Clear image data on error
           });
           
-          print('🔍 PROD DEBUG: Updated state to failed for ${widget.url}, will try HTML fallback');
-          
           // Update controller state
           if (widget.controller != null) {
             widget.controller!.updateLoadingState(_loadingState);
             widget.controller!.updateLoadingProgress(null);
             widget.controller!.updateImageData(null);
             widget.controller!.updateError('Failed to load image: $error');
-            print('🔍 PROD DEBUG: Updated controller with error for ${widget.url}');
           }
           
           // Start animation controller for frequent updates
@@ -694,108 +665,65 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
 
   // NEW: Helper method to extract image bytes from ImageProvider
   Future<Uint8List?> _getImageBytes(ImageProvider imageProvider) async {
-    // PRODUCTION DEBUG: Add detailed logging
-    print('🔍 PROD DEBUG: _getImageBytes called for URL: ${widget.url}');
-    
     try {
       final ImageStream stream = imageProvider.resolve(ImageConfiguration.empty);
       final Completer<Uint8List?> completer = Completer<Uint8List?>();
       
-      print('🔍 PROD DEBUG: Created image stream for ${widget.url}');
-      
       late ImageStreamListener listener;
       listener = ImageStreamListener(
         (ImageInfo info, bool synchronousCall) async {
-          print('🔍 PROD DEBUG: Image stream listener called for ${widget.url}');
-          print('🔍 PROD DEBUG: Image info - width: ${info.image.width}, height: ${info.image.height}');
-          
           try {
-            print('🔍 PROD DEBUG: Attempting to convert image to bytes for ${widget.url}');
             final ByteData? byteData = await info.image.toByteData(format: ui.ImageByteFormat.png);
-            print('🔍 PROD DEBUG: toByteData result: ${byteData != null ? '${byteData.lengthInBytes} bytes' : 'null'}');
             
             if (byteData != null) {
               final Uint8List bytes = byteData.buffer.asUint8List();
-              print('🔍 PROD DEBUG: Successfully extracted ${bytes.length} bytes for ${widget.url}');
               stream.removeListener(listener);
               completer.complete(bytes);
             } else {
-              print('❌ PROD DEBUG: ByteData is null for ${widget.url} - trying CORS workaround');
               stream.removeListener(listener);
               
               // Try CORS workaround when toByteData fails
               final corsBytes = await _fetchImageBytesWithCors(widget.url);
-              if (corsBytes != null) {
-                print('✅ PROD DEBUG: CORS workaround successful for ${widget.url}: ${corsBytes.length} bytes');
-                completer.complete(corsBytes);
-              } else {
-                print('❌ PROD DEBUG: CORS workaround also failed for ${widget.url}');
-                completer.complete(null);
-              }
+              completer.complete(corsBytes);
             }
           } catch (e) {
-            print('❌ PROD DEBUG: Error in toByteData for ${widget.url}: $e');
-            print('❌ PROD DEBUG: Error stack trace: ${StackTrace.current}');
             stream.removeListener(listener);
             
             // Try CORS workaround when toByteData throws an exception
             try {
               final corsBytes = await _fetchImageBytesWithCors(widget.url);
-              if (corsBytes != null) {
-                print('✅ PROD DEBUG: CORS workaround successful after exception for ${widget.url}: ${corsBytes.length} bytes');
-                completer.complete(corsBytes);
-              } else {
-                print('❌ PROD DEBUG: CORS workaround also failed after exception for ${widget.url}');
-                completer.complete(null);
-              }
+              completer.complete(corsBytes);
             } catch (corsError) {
-              print('❌ PROD DEBUG: CORS workaround threw exception for ${widget.url}: $corsError');
               completer.complete(null);
             }
           }
         },
         onError: (dynamic error, StackTrace? stackTrace) {
-          print('❌ PROD DEBUG: Image stream error for ${widget.url}: $error');
-          print('❌ PROD DEBUG: Error stack trace: $stackTrace');
           stream.removeListener(listener);
           completer.complete(null);
         },
       );
       
       stream.addListener(listener);
-      print('🔍 PROD DEBUG: Added listener to image stream for ${widget.url}');
       
       final result = await completer.future;
-      print('🔍 PROD DEBUG: _getImageBytes result for ${widget.url}: ${result != null ? '${result.length} bytes' : 'null'}');
       return result;
     } catch (e) {
-      print('❌ PROD DEBUG: _getImageBytes exception for ${widget.url}: $e');
-      print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
-      
       // Last resort: try CORS workaround
       try {
-        print('🔍 PROD DEBUG: Attempting CORS workaround as last resort for ${widget.url}');
         final corsBytes = await _fetchImageBytesWithCors(widget.url);
-        if (corsBytes != null) {
-          print('✅ PROD DEBUG: Last resort CORS workaround successful for ${widget.url}: ${corsBytes.length} bytes');
-          return corsBytes;
-        }
+        return corsBytes;
       } catch (corsError) {
-        print('❌ PROD DEBUG: Last resort CORS workaround failed for ${widget.url}: $corsError');
+        return null;
       }
-      
-      return null;
     }
   }
 
   // NEW: Fetch image bytes directly using browser's fetch API to bypass CORS restrictions
   Future<Uint8List?> _fetchImageBytesWithCors(String imageUrl) async {
     if (!kIsWeb) {
-      print('🔍 PROD DEBUG: _fetchImageBytesWithCors called on non-web platform');
       return null;
     }
-    
-    print('🔍 PROD DEBUG: _fetchImageBytesWithCors called for $imageUrl');
     
     try {
       // Use JavaScript fetch API which has better CORS handling
@@ -805,8 +733,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       script.text = '''
         window.fetchImageBytes${widget.url.hashCode} = async function() {
           try {
-            console.log('🔍 JS DEBUG: Fetching image bytes for $imageUrl');
-            
             // Try different CORS modes
             let response;
             try {
@@ -816,7 +742,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                 cache: 'no-cache'
               });
             } catch (corsError) {
-              console.log('🔍 JS DEBUG: CORS mode failed, trying no-cors:', corsError.message);
               try {
                 // Fallback to no-cors (won't allow reading response, but might work for some cases)
                 response = await fetch('$imageUrl', { 
@@ -824,36 +749,27 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                   cache: 'no-cache'
                 });
               } catch (noCorsError) {
-                console.log('🔍 JS DEBUG: No-cors also failed, trying default:', noCorsError.message);
                 // Last try with default settings
                 response = await fetch('$imageUrl');
               }
             }
             
-            console.log('🔍 JS DEBUG: Fetch response status:', response.status, response.type);
-            
             if (response.type === 'opaque') {
-              console.log('❌ JS DEBUG: Response is opaque (no-cors), cannot read bytes');
               return null;
             }
             
             if (!response.ok) {
-              console.log('❌ JS DEBUG: Response not ok:', response.status, response.statusText);
               return null;
             }
             
             const arrayBuffer = await response.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
             
-            console.log('✅ JS DEBUG: Successfully fetched', uint8Array.length, 'bytes');
-            
             // Convert to regular Array to avoid interop issues
             const regularArray = Array.from(uint8Array);
-            console.log('🔍 JS DEBUG: Converted to regular array:', regularArray.length, 'elements');
             return regularArray;
             
           } catch (error) {
-            console.error('❌ JS DEBUG: Fetch error:', error);
             return null;
           }
         };
@@ -869,12 +785,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         script.remove(); // Clean up
         if (result != null) {
           try {
-            print('🔍 PROD DEBUG: Processing JS result, type: ${result.runtimeType}');
-            
             // Convert JavaScript regular array to Dart Uint8List
             final jsArray = result as js.JsObject;
             final length = jsArray['length'] as int;
-            print('🔍 PROD DEBUG: JS array length: $length');
             
             // Create Dart Uint8List and copy data
             final dartList = Uint8List(length);
@@ -888,22 +801,17 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
               }
             }
             
-            print('✅ PROD DEBUG: Successfully converted JS array to Dart Uint8List: ${dartList.length} bytes');
             completer.complete(dartList);
             
           } catch (conversionError) {
-            print('❌ PROD DEBUG: Error converting JS array to Dart: $conversionError');
-            print('❌ PROD DEBUG: Conversion stack trace: ${StackTrace.current}');
             completer.complete(null);
           }
         } else {
-          print('❌ PROD DEBUG: JS fetch returned null');
           completer.complete(null);
         }
       });
       
       final catchCallback = js.allowInterop((error) {
-        print('❌ PROD DEBUG: JS promise rejected: $error');
         script.remove(); // Clean up
         completer.complete(null);
       });
@@ -911,50 +819,36 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       if (promise != null) {
         promise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
       } else {
-        print('❌ PROD DEBUG: JS function returned null promise');
         script.remove();
         completer.complete(null);
       }
       
       final result = await completer.future;
-      print('🔍 PROD DEBUG: _fetchImageBytesWithCors final result for $imageUrl: ${result != null ? '${result.length} bytes' : 'null'}');
       return result;
       
     } catch (e) {
-      print('❌ PROD DEBUG: _fetchImageBytesWithCors exception for $imageUrl: $e');
-      print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
       return null;
     }
   }
 
   // NEW: Try to extract image data from HTML fallback for copy functionality
   Future<void> _tryExtractImageDataFromHtmlFallback() async {
-    print('🔍 PROD DEBUG: _tryExtractImageDataFromHtmlFallback called for ${widget.url}');
-    print('🔍 PROD DEBUG: mounted: $mounted, _imageData: ${_imageData != null}');
-    
     if (!mounted || _imageData != null) {
-      print('🔍 PROD DEBUG: Skipping HTML data extraction - mounted: $mounted, hasData: ${_imageData != null}');
       return; // Already have data
     }
     
     try {
-      print('🔍 PROD DEBUG: Attempting to extract image data from HTML fallback for ${widget.url}');
       // Attempt to load the image again using ImageProvider to get bytes
       // This is a workaround since HTML img doesn't provide bytes directly
       final imageProvider = NetworkImage(widget.url, headers: widget.headers);
       final imageBytes = await _getImageBytes(imageProvider);
       
-      print('🔍 PROD DEBUG: HTML fallback _getImageBytes returned: ${imageBytes != null ? '${imageBytes.length} bytes' : 'null'} for ${widget.url}');
-      
       if (imageBytes != null && mounted) {
-        print('🔍 PROD DEBUG: Got image bytes from HTML fallback, attempting to decode for ${widget.url}');
         // We need to get dimensions, try to decode the image
         try {
           final codec = await ui.instantiateImageCodec(imageBytes);
           final frame = await codec.getNextFrame();
           final ui.Image image = frame.image;
-          
-          print('🔍 PROD DEBUG: Successfully decoded image dimensions: ${image.width}x${image.height} for ${widget.url}');
           
           final imageData = ImageDataInfo(
             imageBytes: imageBytes,
@@ -969,25 +863,20 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             _loadingState = ImageLoadingState.loaded; // Update to loaded since HTML succeeded
           });
           
-          print('✅ PROD DEBUG: HTML fallback - Updated state with image data for ${widget.url}');
-          
           // Update controller
           if (widget.controller != null) {
             widget.controller!.updateImageData(imageData);
             widget.controller!.updateLoadingState(ImageLoadingState.loaded);
             widget.controller!.updateError(null);
-            print('✅ PROD DEBUG: HTML fallback - Updated controller with image data for ${widget.url}');
           }
           
           // Call callback if provided
           if (widget.onImageLoaded != null) {
             widget.onImageLoaded!(imageData);
-            print('✅ PROD DEBUG: HTML fallback - Called onImageLoaded callback for ${widget.url}');
           }
           
           image.dispose();
         } catch (e) {
-          print('⚠️ PROD DEBUG: Failed to decode image dimensions for ${widget.url}: $e');
           // Failed to decode image for dimensions, create with unknown dimensions
           final imageData = ImageDataInfo(
             imageBytes: imageBytes,
@@ -1002,29 +891,21 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
               _loadingState = ImageLoadingState.loaded;
             });
             
-            print('✅ PROD DEBUG: HTML fallback - Updated state with unknown dimensions for ${widget.url}');
-            
             // Update controller
             if (widget.controller != null) {
               widget.controller!.updateImageData(imageData);
               widget.controller!.updateLoadingState(ImageLoadingState.loaded);
               widget.controller!.updateError(null);
-              print('✅ PROD DEBUG: HTML fallback - Updated controller with unknown dimensions for ${widget.url}');
             }
             
             // Call callback if provided
             if (widget.onImageLoaded != null) {
               widget.onImageLoaded!(imageData);
-              print('✅ PROD DEBUG: HTML fallback - Called onImageLoaded callback with unknown dimensions for ${widget.url}');
             }
           }
         }
-      } else {
-        print('❌ PROD DEBUG: HTML fallback failed to get image bytes for ${widget.url}');
       }
     } catch (e) {
-      print('❌ PROD DEBUG: HTML fallback exception for ${widget.url}: $e');
-      print('❌ PROD DEBUG: HTML fallback stack trace: ${StackTrace.current}');
       // Failed to extract image data, but HTML is still showing the image
       // This is not a critical error, just means copy won't work
       
