@@ -524,11 +524,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   }
 
   void _preloadImage() {
-    print('[CustomNetworkImage] Preloading image - isCurrentlyLoading: $_isCurrentlyLoading');
     
     // Prevent multiple simultaneous loading attempts
     if (_isCurrentlyLoading) {
-      print('[CustomNetworkImage] Already loading, skipping duplicate call');
       return;
     }
     

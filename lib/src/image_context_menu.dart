@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'types.dart';
 import 'image_clipboard_helper.dart';
 import 'text_clipboard_helper.dart';
-import 'web_image_loader.dart' if (dart.library.io) 'stub_image_loader.dart';
 import 'web_context_menu_helper.dart' if (dart.library.io) 'stub_context_menu_helper.dart';
 
 /// Custom context menu widget for image actions

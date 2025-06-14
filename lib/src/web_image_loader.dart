@@ -1,9 +1,10 @@
-import 'dart:html' as html;
+import 'package:web/web.dart' as web;
 import 'dart:async';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 // Import UI correctly for web
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart' show Matrix4;
-import 'dart:js' as js show context, allowInterop, JsObject;
 import 'dart:typed_data';
 
 /// Global callback map to handle taps for specific view IDs
@@ -16,10 +17,34 @@ final Map<String, Function> _htmlImageErrorCallbacks = {};
 final Map<String, Function> _htmlImageSuccessCallbacks = {};
 
 /// Mapping of viewIds to their HTML div elements for transformation
-final Map<String, html.Element> _htmlElements = {};
+final Map<String, web.HTMLElement> _htmlElements = {};
 
 /// Mapping of viewIds to their timeout timers for cleanup
 final Map<String, Timer> _timeoutTimers = {};
+
+/// External JavaScript declarations for global window operations
+@JS('window')
+external JSObject get windowObject;
+
+/// Helper function to check if a property exists on window
+bool hasWindowProperty(String name) {
+  return windowObject.hasProperty(name.toJS).toDart;
+}
+
+/// Helper function to get a property from window
+JSAny? getWindowProperty(String name) {
+  return windowObject.getProperty(name.toJS);
+}
+
+/// Helper function to set a property on window
+void setWindowProperty(String name, JSAny value) {
+  windowObject.setProperty(name.toJS, value);
+}
+
+/// Helper function to delete a property from window
+void deleteWindowProperty(String name) {
+  windowObject.delete(name.toJS);
+}
 
 /// Fetch image bytes with CORS workaround for web platforms
 Future<Uint8List?> fetchImageBytesWithCors(String imageUrl, {Function(double)? onProgress}) async {
@@ -29,10 +54,10 @@ Future<Uint8List?> fetchImageBytesWithCors(String imageUrl, {Function(double)? o
     
     // Check if the function already exists in window to avoid duplicate scripts
     final functionName = 'fetchImageBytes${imageUrl.hashCode}';
-    final existingFunction = js.context[functionName];
+    final existingFunction = getWindowProperty(functionName);
     
-    if (existingFunction == null) {
-      final script = html.document.createElement('script');
+    if (existingFunction == null || existingFunction.isUndefinedOrNull) {
+      final script = web.document.createElement('script') as web.HTMLScriptElement;
       script.text = '''
         window.$functionName = async function(progressCallback) {
           try {
@@ -184,54 +209,69 @@ Future<Uint8List?> fetchImageBytesWithCors(String imageUrl, {Function(double)? o
         };
       ''';
       
-      html.document.head!.append(script);
+      web.document.head!.appendChild(script);
     }
     
-    // Create progress callback
-    final progressCallback = onProgress != null ? js.allowInterop((double progress) {
-      onProgress(progress);
-    }) : null;
+    // Create progress callback using dart:js_interop
+    JSFunction? progressCallback;
+    if (onProgress != null) {
+      progressCallback = ((double progress) {
+        onProgress(progress);
+      }).toJS;
+    }
     
-    // Call the function
-    final promise = js.context.callMethod(functionName, [progressCallback]);
+    // Call the function using proper js_interop
+    final jsFunction = getWindowProperty(functionName);
     
-    // Handle the promise
-    final thenCallback = js.allowInterop((result) {
-      if (result != null) {
+    if (jsFunction != null && !jsFunction.isUndefinedOrNull) {
+      // Cast to JSFunction to use callAsFunction
+      final function = jsFunction as JSFunction;
+      final promise = function.callAsFunction(
+        windowObject,
+        progressCallback,
+      );
+      
+      if (promise != null) {
         try {
-          // Extract data from the result object
-          final jsResult = result as js.JsObject;
-          final jsArray = jsResult['data'] as js.JsObject;
-          final length = jsArray['length'] as int;
+          // Convert JS Promise to Dart Future
+          final promiseObject = promise as JSPromise<JSAny?>;
+          final result = await promiseObject.toDart;
           
-          // Create Dart Uint8List and copy data
-          final dartList = Uint8List(length);
-          for (int i = 0; i < length; i++) {
-            // Convert each element to int (JS numbers to Dart ints)
-            final value = jsArray[i];
-            if (value is num) {
-              dartList[i] = value.toInt();
-            } else {
-              dartList[i] = int.parse(value.toString());
+          if (result != null && !result.isUndefinedOrNull) {
+            try {
+              // Extract data from the result object using js_interop_unsafe
+              final jsResult = result as JSObject;
+              final jsArrayProperty = jsResult.getProperty('data'.toJS);
+              final sizeProperty = jsResult.getProperty('size'.toJS);
+              
+              if (jsArrayProperty != null && sizeProperty != null) {
+                final jsArray = jsArrayProperty as JSObject;
+                final length = (sizeProperty as JSNumber).toDartInt;
+                
+                // Create Dart Uint8List and copy data
+                final dartList = Uint8List(length);
+                for (int i = 0; i < length; i++) {
+                  final value = jsArray.getProperty(i.toJS) as JSNumber;
+                  dartList[i] = value.toDartInt;
+                }
+                
+                completer.complete(dartList);
+              } else {
+                completer.complete(null);
+              }
+              
+            } catch (conversionError) {
+              completer.complete(null);
             }
+          } else {
+            completer.complete(null);
           }
-          
-          completer.complete(dartList);
-          
-        } catch (conversionError) {
+        } catch (promiseError) {
           completer.complete(null);
         }
       } else {
         completer.complete(null);
       }
-    });
-    
-    final catchCallback = js.allowInterop((error) {
-      completer.complete(null);
-    });
-    
-    if (promise != null) {
-      promise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
     } else {
       completer.complete(null);
     }
@@ -248,8 +288,8 @@ Future<Uint8List?> fetchImageBytesWithCors(String imageUrl, {Function(double)? o
 void cleanupCorsFunction(String imageUrl) {
   final functionName = 'fetchImageBytes${imageUrl.hashCode}';
   try {
-    if (js.context[functionName] != null) {
-      js.context.deleteProperty(functionName);
+    if (hasWindowProperty(functionName)) {
+      deleteWindowProperty(functionName);
     }
   } catch (e) {
     // Ignore cleanup errors
@@ -298,23 +338,23 @@ void registerHtmlImageFactory(String viewId, String url) {
   ui_web.platformViewRegistry.registerViewFactory(
     viewId,
     (int viewIdParam) {
-      // Create a div to hold the image
-      final div = html.DivElement()
-        ..style.width = '100%'
-        ..style.height = '100%'
-        ..style.display = 'flex'
-        ..style.alignItems = 'center'
-        ..style.justifyContent = 'center'
-        ..style.cursor = 'pointer'
-        ..style.overflow = 'hidden'
-        ..style.transformOrigin = 'center center'
-        ..style.transition = 'transform 0.01s linear'; // Add a very slight transition for smoother updates
+      // Create a div to hold the image using package:web
+      final div = web.document.createElement('div') as web.HTMLDivElement;
+      div.style.width = '100%';
+      div.style.height = '100%';
+      div.style.display = 'flex';
+      div.style.alignItems = 'center';
+      div.style.justifyContent = 'center';
+      div.style.cursor = 'pointer';
+      div.style.overflow = 'hidden';
+      div.style.transformOrigin = 'center center';
+      div.style.transition = 'transform 0.01s linear'; // Add a very slight transition for smoother updates
         
       // Store the element for later transformation
       _htmlElements[viewId] = div;
         
-      // Add click event to the div with stopPropagation to prevent event bubbling
-      div.addEventListener('click', (event) {
+      // Add click event to the div using package:web event handling
+      div.addEventListener('click', ((web.Event event) {
         // Stop event propagation to prevent triggering other elements' click events
         event.stopPropagation();
         event.preventDefault();
@@ -323,7 +363,7 @@ void registerHtmlImageFactory(String viewId, String url) {
         if (_htmlImageTapCallbacks.containsKey(viewId)) {
           _htmlImageTapCallbacks[viewId]!();
         }
-      });
+      }).toJS);
 
       // Helper function to trigger error callback
       void triggerErrorCallback() {
@@ -353,56 +393,56 @@ void registerHtmlImageFactory(String viewId, String url) {
       });
         
       try {
-        // First try direct image with CORS settings
-        final imgElement = html.ImageElement()
-          ..src = url
-          ..crossOrigin = 'anonymous'  // Try with CORS
-          ..style.objectFit = 'contain'  // Changed to contain for better zoom behavior
-          ..style.width = '100%'
-          ..style.height = '100%'
-          ..style.maxWidth = '100%'
-          ..style.maxHeight = '100%'
-          ..style.pointerEvents = 'none'; // Prevent image from interfering with gestures
+        // First try direct image with CORS settings using package:web
+        final imgElement = web.document.createElement('img') as web.HTMLImageElement;
+        imgElement.src = url;
+        imgElement.crossOrigin = 'anonymous';  // Try with CORS
+        imgElement.style.objectFit = 'contain';  // Changed to contain for better zoom behavior
+        imgElement.style.width = '100%';
+        imgElement.style.height = '100%';
+        imgElement.style.maxWidth = '100%';
+        imgElement.style.maxHeight = '100%';
+        imgElement.style.pointerEvents = 'none'; // Prevent image from interfering with gestures
 
-        // Clear timeout on successful load
-        imgElement.onLoad.listen((_) {
+        // Clear timeout on successful load using package:web event handling
+        imgElement.addEventListener('load', ((web.Event event) {
           clearTimeoutForViewId();
           triggerSuccessCallback();
-        });
+        }).toJS);
           
         // Add error handler to try fallback without CORS
-        imgElement.onError.listen((event) {
-          // If CORS fails, remove the crossOrigin attribute and try again
+        imgElement.addEventListener('error', ((web.Event event) {
+          // If CORS fails, remove the image and try again without CORS
           imgElement.remove();
           
           // Create img without CORS attribute as last resort
-          final directImgElement = html.ImageElement()
-            ..src = url
-            ..style.objectFit = 'contain'  // Changed to contain for better zoom behavior
-            ..style.width = '100%'
-            ..style.height = '100%'
-            ..style.maxWidth = '100%'
-            ..style.maxHeight = '100%'
-            ..style.pointerEvents = 'none'; // Prevent image from interfering with gestures
+          final directImgElement = web.document.createElement('img') as web.HTMLImageElement;
+          directImgElement.src = url;
+          directImgElement.style.objectFit = 'contain';  // Changed to contain for better zoom behavior
+          directImgElement.style.width = '100%';
+          directImgElement.style.height = '100%';
+          directImgElement.style.maxWidth = '100%';
+          directImgElement.style.maxHeight = '100%';
+          directImgElement.style.pointerEvents = 'none'; // Prevent image from interfering with gestures
 
           // Clear timeout on successful load of direct image
-          directImgElement.onLoad.listen((_) {
+          directImgElement.addEventListener('load', ((web.Event event) {
             clearTimeoutForViewId();
             triggerSuccessCallback();
-          });
+          }).toJS);
             
           // Handle error in the last resort approach - trigger Flutter callback
-          directImgElement.onError.listen((_) {
+          directImgElement.addEventListener('error', ((web.Event event) {
             directImgElement.remove();
             clearTimeoutForViewId();
             // NEW v0.2.0: Trigger Flutter callback instead of showing HTML error
             triggerErrorCallback();
-          });
+          }).toJS);
             
-          div.append(directImgElement);
-        });
+          div.appendChild(directImgElement);
+        }).toJS);
         
-        div.append(imgElement);
+        div.appendChild(imgElement);
       } catch (e) {
         clearTimeoutForViewId();
         // NEW v0.2.0: Trigger Flutter callback instead of showing HTML error
