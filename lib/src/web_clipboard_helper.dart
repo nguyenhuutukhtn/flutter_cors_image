@@ -62,15 +62,15 @@ Future<bool> downloadImageWeb(ImageDataInfo imageData) async {
 }
 
 /// Check if browser supports modern Clipboard API
-bool _supportsClipboardAPI() {
-  try {
-    return js.context.hasProperty('navigator') &&
-           js.context['navigator'].hasProperty('clipboard') &&
-           js.context['navigator']['clipboard'].hasProperty('write');
-  } catch (e) {
-    return false;
-  }
-}
+// bool _supportsClipboardAPI() {
+//   try {
+//     return js.context.hasProperty('navigator') &&
+//            js.context['navigator'].hasProperty('clipboard') &&
+//            js.context['navigator']['clipboard'].hasProperty('write');
+//   } catch (e) {
+//     return false;
+//   }
+// }
 
 /// Copy using modern Clipboard API (works in most modern browsers)
 Future<bool> _copyWithClipboardAPI(ImageDataInfo imageData) async {

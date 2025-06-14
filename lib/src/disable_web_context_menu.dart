@@ -19,7 +19,7 @@ class _GlobalContextMenuHandler {
     _contextMenuListener = (html.Event event) {
       if (event.type == 'contextmenu') {
         if (event is html.MouseEvent) {
-          final mouseEvent = event as html.MouseEvent;
+          final mouseEvent = event;
           final clickPoint = Offset(mouseEvent.clientX.toDouble(), mouseEvent.clientY.toDouble());
           
           // Simple approach: check each widget's bounds directly
