@@ -846,7 +846,11 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             const uint8Array = new Uint8Array(arrayBuffer);
             
             console.log('✅ JS DEBUG: Successfully fetched', uint8Array.length, 'bytes');
-            return uint8Array;
+            
+            // Convert to regular Array to avoid interop issues
+            const regularArray = Array.from(uint8Array);
+            console.log('🔍 JS DEBUG: Converted to regular array:', regularArray.length, 'elements');
+            return regularArray;
             
           } catch (error) {
             console.error('❌ JS DEBUG: Fetch error:', error);
@@ -865,17 +869,31 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         script.remove(); // Clean up
         if (result != null) {
           try {
-            // Convert JS Uint8Array to Dart Uint8List
+            print('🔍 PROD DEBUG: Processing JS result, type: ${result.runtimeType}');
+            
+            // Convert JavaScript regular array to Dart Uint8List
             final jsArray = result as js.JsObject;
             final length = jsArray['length'] as int;
+            print('🔍 PROD DEBUG: JS array length: $length');
+            
+            // Create Dart Uint8List and copy data
             final dartList = Uint8List(length);
             for (int i = 0; i < length; i++) {
-              dartList[i] = jsArray[i] as int;
+              // Convert each element to int (JS numbers to Dart ints)
+              final value = jsArray[i];
+              if (value is num) {
+                dartList[i] = value.toInt();
+              } else {
+                dartList[i] = int.parse(value.toString());
+              }
             }
-            print('✅ PROD DEBUG: Converted JS array to Dart Uint8List: ${dartList.length} bytes');
+            
+            print('✅ PROD DEBUG: Successfully converted JS array to Dart Uint8List: ${dartList.length} bytes');
             completer.complete(dartList);
+            
           } catch (conversionError) {
             print('❌ PROD DEBUG: Error converting JS array to Dart: $conversionError');
+            print('❌ PROD DEBUG: Conversion stack trace: ${StackTrace.current}');
             completer.complete(null);
           }
         } else {
