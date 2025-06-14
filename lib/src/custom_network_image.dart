@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:extended_image/extended_image.dart';
@@ -9,6 +10,9 @@ import 'types.dart';
 import 'custom_network_image_controller.dart';
 import 'disable_web_context_menu.dart';
 import 'image_context_menu.dart';
+// Web-specific imports for CORS workaround
+import 'dart:html' as html show document;
+import 'dart:js' as js show context, allowInterop, JsObject;
 
 /// A network image widget that handles problematic images by falling back to HTML img tag
 /// when the standard Flutter image loader fails.
@@ -716,15 +720,38 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
               stream.removeListener(listener);
               completer.complete(bytes);
             } else {
-              print('❌ PROD DEBUG: ByteData is null for ${widget.url}');
+              print('❌ PROD DEBUG: ByteData is null for ${widget.url} - trying CORS workaround');
               stream.removeListener(listener);
-              completer.complete(null);
+              
+              // Try CORS workaround when toByteData fails
+              final corsBytes = await _fetchImageBytesWithCors(widget.url);
+              if (corsBytes != null) {
+                print('✅ PROD DEBUG: CORS workaround successful for ${widget.url}: ${corsBytes.length} bytes');
+                completer.complete(corsBytes);
+              } else {
+                print('❌ PROD DEBUG: CORS workaround also failed for ${widget.url}');
+                completer.complete(null);
+              }
             }
           } catch (e) {
             print('❌ PROD DEBUG: Error in toByteData for ${widget.url}: $e');
             print('❌ PROD DEBUG: Error stack trace: ${StackTrace.current}');
             stream.removeListener(listener);
-            completer.complete(null);
+            
+            // Try CORS workaround when toByteData throws an exception
+            try {
+              final corsBytes = await _fetchImageBytesWithCors(widget.url);
+              if (corsBytes != null) {
+                print('✅ PROD DEBUG: CORS workaround successful after exception for ${widget.url}: ${corsBytes.length} bytes');
+                completer.complete(corsBytes);
+              } else {
+                print('❌ PROD DEBUG: CORS workaround also failed after exception for ${widget.url}');
+                completer.complete(null);
+              }
+            } catch (corsError) {
+              print('❌ PROD DEBUG: CORS workaround threw exception for ${widget.url}: $corsError');
+              completer.complete(null);
+            }
           }
         },
         onError: (dynamic error, StackTrace? stackTrace) {
@@ -743,6 +770,140 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       return result;
     } catch (e) {
       print('❌ PROD DEBUG: _getImageBytes exception for ${widget.url}: $e');
+      print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
+      
+      // Last resort: try CORS workaround
+      try {
+        print('🔍 PROD DEBUG: Attempting CORS workaround as last resort for ${widget.url}');
+        final corsBytes = await _fetchImageBytesWithCors(widget.url);
+        if (corsBytes != null) {
+          print('✅ PROD DEBUG: Last resort CORS workaround successful for ${widget.url}: ${corsBytes.length} bytes');
+          return corsBytes;
+        }
+      } catch (corsError) {
+        print('❌ PROD DEBUG: Last resort CORS workaround failed for ${widget.url}: $corsError');
+      }
+      
+      return null;
+    }
+  }
+
+  // NEW: Fetch image bytes directly using browser's fetch API to bypass CORS restrictions
+  Future<Uint8List?> _fetchImageBytesWithCors(String imageUrl) async {
+    if (!kIsWeb) {
+      print('🔍 PROD DEBUG: _fetchImageBytesWithCors called on non-web platform');
+      return null;
+    }
+    
+    print('🔍 PROD DEBUG: _fetchImageBytesWithCors called for $imageUrl');
+    
+    try {
+      // Use JavaScript fetch API which has better CORS handling
+      final completer = Completer<Uint8List?>();
+      
+      final script = html.document.createElement('script');
+      script.text = '''
+        window.fetchImageBytes${widget.url.hashCode} = async function() {
+          try {
+            console.log('🔍 JS DEBUG: Fetching image bytes for $imageUrl');
+            
+            // Try different CORS modes
+            let response;
+            try {
+              // First try with CORS mode (allows reading response)
+              response = await fetch('$imageUrl', { 
+                mode: 'cors',
+                cache: 'no-cache'
+              });
+            } catch (corsError) {
+              console.log('🔍 JS DEBUG: CORS mode failed, trying no-cors:', corsError.message);
+              try {
+                // Fallback to no-cors (won't allow reading response, but might work for some cases)
+                response = await fetch('$imageUrl', { 
+                  mode: 'no-cors',
+                  cache: 'no-cache'
+                });
+              } catch (noCorsError) {
+                console.log('🔍 JS DEBUG: No-cors also failed, trying default:', noCorsError.message);
+                // Last try with default settings
+                response = await fetch('$imageUrl');
+              }
+            }
+            
+            console.log('🔍 JS DEBUG: Fetch response status:', response.status, response.type);
+            
+            if (response.type === 'opaque') {
+              console.log('❌ JS DEBUG: Response is opaque (no-cors), cannot read bytes');
+              return null;
+            }
+            
+            if (!response.ok) {
+              console.log('❌ JS DEBUG: Response not ok:', response.status, response.statusText);
+              return null;
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            console.log('✅ JS DEBUG: Successfully fetched', uint8Array.length, 'bytes');
+            return uint8Array;
+            
+          } catch (error) {
+            console.error('❌ JS DEBUG: Fetch error:', error);
+            return null;
+          }
+        };
+      ''';
+      
+      html.document.head!.append(script);
+      
+      // Call the function
+      final promise = js.context.callMethod('fetchImageBytes${widget.url.hashCode}');
+      
+      // Handle the promise
+      final thenCallback = js.allowInterop((result) {
+        script.remove(); // Clean up
+        if (result != null) {
+          try {
+            // Convert JS Uint8Array to Dart Uint8List
+            final jsArray = result as js.JsObject;
+            final length = jsArray['length'] as int;
+            final dartList = Uint8List(length);
+            for (int i = 0; i < length; i++) {
+              dartList[i] = jsArray[i] as int;
+            }
+            print('✅ PROD DEBUG: Converted JS array to Dart Uint8List: ${dartList.length} bytes');
+            completer.complete(dartList);
+          } catch (conversionError) {
+            print('❌ PROD DEBUG: Error converting JS array to Dart: $conversionError');
+            completer.complete(null);
+          }
+        } else {
+          print('❌ PROD DEBUG: JS fetch returned null');
+          completer.complete(null);
+        }
+      });
+      
+      final catchCallback = js.allowInterop((error) {
+        print('❌ PROD DEBUG: JS promise rejected: $error');
+        script.remove(); // Clean up
+        completer.complete(null);
+      });
+      
+      if (promise != null) {
+        promise.callMethod('then', [thenCallback]).callMethod('catch', [catchCallback]);
+      } else {
+        print('❌ PROD DEBUG: JS function returned null promise');
+        script.remove();
+        completer.complete(null);
+      }
+      
+      final result = await completer.future;
+      print('🔍 PROD DEBUG: _fetchImageBytesWithCors final result for $imageUrl: ${result != null ? '${result.length} bytes' : 'null'}');
+      return result;
+      
+    } catch (e) {
+      print('❌ PROD DEBUG: _fetchImageBytesWithCors exception for $imageUrl: $e');
       print('❌ PROD DEBUG: Exception stack trace: ${StackTrace.current}');
       return null;
     }
