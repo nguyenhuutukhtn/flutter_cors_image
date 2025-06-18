@@ -131,6 +131,9 @@ class CustomNetworkImage extends StatefulWidget {
   /// NEW: Controller for external management
   /// Provides methods to reload, download, copy image and get state externally
   final CustomNetworkImageController? controller;
+
+  /// NEW: Context to show the context menu at
+  final BuildContext? contextToShowContextMenu;
   
   /// DEPRECATED: Use errorWidget instead
   /// Custom error message text. If null, only icon will be shown.
@@ -242,6 +245,7 @@ class CustomNetworkImage extends StatefulWidget {
     this.contextMenuBorderRadius,
     this.contextMenuPadding,
     this.onContextMenuAction,
+    this.contextToShowContextMenu,
   }) : super(key: key);
 
   @override
@@ -879,7 +883,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     } catch (e) {
       // Last resort: try CORS workaround
       try {
-                    final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url);
+        final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url);
         return corsBytes;
       } catch (corsError) {
         return null;
@@ -1102,8 +1106,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     );
   }
   
-  /// Show context menu at the specified global position
-  void _showContextMenuAt(Offset globalPosition) {
+  /// Show context menu at the specified position (client coordinates from mouse event)
+  void _showContextMenuAt(Offset clientPosition) {
     // PERFORMANCE FIX: Early return if context menu is disabled
     if (!widget.enableContextMenu || !kIsWeb || !mounted) return;
     
@@ -1113,11 +1117,25 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     // Get context menu items (use custom or default)
     final items = widget.customContextMenuItems ?? ImageContextMenu.defaultItems;
     
+    // The most reliable way to position the overlay is to convert the global
+    // screen coordinates (clientPosition) into the Overlay's local coordinates.
+    final overlay = Overlay.of(context);
+    final RenderBox? overlayRenderBox = overlay.context.findRenderObject() as RenderBox?;
+    
+    if (overlayRenderBox == null) return;
+
+    final overlayPosition = overlayRenderBox.globalToLocal(clientPosition);
+
+    if (kDebugMode) {
+      print('[CustomNetworkImage] Click position in viewport: $clientPosition');
+      print('[CustomNetworkImage] Calculated overlay position: $overlayPosition');
+    }
+
     // Create the overlay entry
     _contextMenuOverlay = OverlayEntry(
-      builder: (context) {
+      builder: (overlayContext) {
         return ImageContextMenu(
-          position: globalPosition,
+          position: overlayPosition,
           items: items,
           imageUrl: widget.url,
           imageData: _imageData,
@@ -1139,8 +1157,13 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     // Insert the overlay
     try {
-      Overlay.of(context).insert(_contextMenuOverlay!);
+      // Use the widget's context if contextToShowContextMenu is specified, otherwise use current context
+      final overlayContext = widget.contextToShowContextMenu ?? context;
+      Overlay.of(overlayContext).insert(_contextMenuOverlay!);
     } catch (e) {
+      if (kDebugMode) {
+        print('[CustomNetworkImage] Error inserting overlay: $e');
+      }
       // Silently fail
     }
   }

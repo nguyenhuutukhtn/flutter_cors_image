@@ -16,7 +16,12 @@ class GlobalContextMenuHandler {
       if (event.type == 'contextmenu') {
         if (event is html.MouseEvent) {
           final mouseEvent = event;
+          // Use client coordinates (viewport relative) for consistency with Flutter overlays
           final clickPoint = Offset(mouseEvent.clientX.toDouble(), mouseEvent.clientY.toDouble());
+          
+          if (kDebugMode) {
+            print('[ContextMenuHelper] Mouse right-click at client coordinates: $clickPoint');
+          }
           
           // Simple approach: check each widget's bounds directly
           DisableWebContextMenuHandler? targetWidget;
@@ -34,6 +39,9 @@ class GlobalContextMenuHandler {
             event.stopPropagation();
             
             // Trigger custom context menu
+            if (kDebugMode) {
+              print('[ContextMenuHelper] Triggering context menu for widget at: $clickPoint');
+            }
             targetWidget.triggerContextMenu(clickPoint);
           }
           // If no widget found, allow native context menu (don't prevent)

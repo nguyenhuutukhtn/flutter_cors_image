@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.6 - Context Menu Positioning Fix
+
+### 🐛 Bug Fixes
+* **Fixed Context Menu Positioning**: Resolved a critical bug where the right-click context menu appeared in the wrong location if the Flutter web app was not positioned at the top-left of the browser viewport.
+* **Improved Coordinate Conversion**: Implemented a robust coordinate system conversion to correctly map browser viewport coordinates (from `clientX`/`clientY`) to the Flutter `Overlay`'s local coordinate system.
+* **Enhanced Hit-Testing**: Made the widget bounds check more reliable by properly converting global click points to the widget's local coordinate system, ensuring the context menu only appears when clicking directly on the image.
+
+### 🛠️ Technical Changes
+* The `_showContextMenuAt` method in `CustomNetworkImage` now uses `overlayRenderBox.globalToLocal()` to accurately calculate the menu's position within the Flutter app's coordinate space.
+* The `isPointInBounds` method in `DisableWebContextMenu` now uses `renderBox.globalToLocal()` for more accurate hit-testing.
+* Removed previous complex and incorrect coordinate calculations in favor of a simpler, more correct approach.
+
+### 🧪 Validation
+* ✅ Context menu now appears precisely at the cursor's position when right-clicking, regardless of the app's position on the web page.
+* ✅ Hit-testing is accurate, preventing the menu from appearing for clicks outside the image bounds.
+* ✅ Tested in various layouts, including centered apps, scrolled pages, and nested views.
+
 ## 0.3.5 - Platform Compatibility Fix Release
 
 ### 🔧 Platform Compatibility Improvements

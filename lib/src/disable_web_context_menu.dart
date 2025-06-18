@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 // Conditional import for web-specific context menu functionality
 import 'web_context_menu_disable_helper.dart' if (dart.library.io) 'stub_context_menu_disable_helper.dart';
 
@@ -66,13 +67,27 @@ class _DisableWebContextMenuState extends State<DisableWebContextMenu> implement
     try {
       final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
       if (renderBox?.hasSize == true) {
-        final position = renderBox!.localToGlobal(Offset.zero);
-        final size = renderBox.size;
-        final bounds = Rect.fromLTWH(position.dx, position.dy, size.width, size.height);
-        return bounds.contains(point);
+        // `point` is in global coordinates (from clientX/Y).
+        // Convert the global point to the local coordinate system of the renderBox.
+        final localPoint = renderBox!.globalToLocal(point);
+        
+        // Check if the local point is within the widget's bounds.
+        // The paintBounds are in the local coordinate system, starting at (0,0).
+        final inBounds = renderBox.paintBounds.contains(localPoint);
+
+        if (kDebugMode) {
+          print('[DisableWebContextMenu] Bounds check for point: $point');
+          print('[DisableWebContextMenu] Converted local point: $localPoint');
+          print('[DisableWebContextMenu] Widget paint bounds (local): ${renderBox.paintBounds}');
+          print('[DisableWebContextMenu] Point in bounds: $inBounds');
+        }
+        
+        return inBounds;
       }
     } catch (e) {
-      // Ignore errors
+      if (kDebugMode) {
+        print('[DisableWebContextMenu] Error in bounds check: $e');
+      }
     }
     
     return false;
@@ -81,6 +96,9 @@ class _DisableWebContextMenuState extends State<DisableWebContextMenu> implement
   /// Trigger the context menu callback
   @override
   void triggerContextMenu(Offset position) {
+    if (kDebugMode) {
+      print('[DisableWebContextMenu] triggerContextMenu called with position: $position');
+    }
     if (widget.onContextMenu != null) {
       widget.onContextMenu!(position);
     }
