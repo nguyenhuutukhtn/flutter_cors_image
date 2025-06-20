@@ -11,3 +11,4 @@ export 'src/image_clipboard_helper.dart';
 export 'src/disable_web_context_menu.dart';
 export 'src/image_context_menu.dart';
 export 'src/text_clipboard_helper.dart';
+export 'src/web_storage_cache.dart';

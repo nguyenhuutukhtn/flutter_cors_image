@@ -1,5 +1,213 @@
 # Changelog
 
+## 0.3.7 - ListView Performance & IndexedDB Caching Release
+
+### 🚀 Major Performance Improvements
+
+#### **ListView Scrolling Optimization**
+* **FIXED**: Resolved the original reported issue where ListView scrolling caused repeated server requests, stressing the server
+* **NEW**: Comprehensive IndexedDB caching system prevents network requests during ListView scrolling
+* **NEW**: Smart widget state management prevents unnecessary image reloading when widgets are recycled
+* **NEW**: Added loading state guards to prevent duplicate network requests during cache checks
+
+#### **Advanced IndexedDB Caching System**
+* **NEW**: `WebStorageCacheConfig` class for configurable persistent caching in browser IndexedDB
+* **NEW**: Automatic cache size management with configurable limits (default: 100MB)
+* **NEW**: Cache expiration system with configurable timeouts (default: 7 days)
+* **NEW**: **Automatic background cleanup** - expired entries removed every hour without user intervention
+* **NEW**: **Lazy expiration checking** - expired entries removed when accessed
+* **NEW**: **Manual cleanup API** - `cleanupExpiredEntries()` for on-demand cleanup
+* **NEW**: Binary image storage in IndexedDB for better performance vs localStorage base64 encoding
+* **NEW**: FIFO cache cleanup when storage quota is reached
+* **NEW**: Cross-session persistence - images cached across browser sessions
+
+#### **Enhanced Cache Flow**
+* **Priority 1**: Check widget memory state (instant display if available)
+* **Priority 2**: Check IndexedDB cache (fast retrieval from browser storage)
+* **Priority 3**: Load from network and cache in IndexedDB (single request only)
+* **Priority 4**: Display cached images instantly on subsequent loads
+
+### 🎯 ListView Performance Testing
+
+#### **New ListView Demo**
+* **NEW**: `ListViewCacheDemoPage` - Comprehensive ListView scrolling test with 50+ images
+* **NEW**: Added to unified example app as "ListView Test" tab
+* **NEW**: Real-time cache statistics display
+* **NEW**: Visual indicators showing IndexedDB caching status
+* **NEW**: Performance comparison between first load vs cached loads
+
+#### **Testing Features**
+* **NEW**: Long list of 50+ images with different URLs for comprehensive testing
+* **NEW**: Rapid scrolling performance validation
+* **NEW**: Network tab monitoring instructions for zero-request verification
+* **NEW**: Cache hit/miss logging with detailed debugging information
+* **NEW**: Before/after refresh comparison demonstrations
+
+### 🛠️ Technical Implementation
+
+#### **Automatic Cache Expiration System**
+```dart
+// 🔄 AUTOMATIC: Background cleanup every hour
+Timer.periodic(Duration(hours: 1), (timer) {
+  _performProactiveCleanup(); // Removes expired entries automatically
+});
+
+// 🔍 LAZY: Expiration check on access
+if (cachedData.isExpired(config.cacheExpirationHours)) {
+  _deleteCachedImage(url); // Remove expired entry
+  return null; // Force fresh load
+}
+
+// 🧹 MANUAL: On-demand cleanup
+final cleanedCount = await WebStorageCache.instance.cleanupExpiredEntries(
+  customExpirationHours: 48, // Custom expiration time
+);
+```
+
+#### **Smart Loading Prevention**
+```dart
+// CRITICAL FIX: Prevent reloading if image data already exists
+if (_imageData != null && _loadingState == ImageLoadingState.loaded && !_loadError) {
+  print('[CustomNetworkImage] Already have valid image data, skipping preload');
+  return;
+}
+```
+
+#### **IndexedDB Integration**
+```dart
+// Check IndexedDB cache before any network requests
+final cachedData = await webCache.getCachedImage(widget.url, widget.webStorageCacheConfig);
+if (cachedData != null) {
+  // Display from cache instantly - no network request
+  final imageData = cachedData.toImageDataInfo();
+  setState(() => _imageData = imageData);
+}
+```
+
+#### **Build Method Optimization**
+```dart
+// PRIORITY 1: Always display from memory if available (prevents network requests)
+if (_imageData != null) {
+  return Image.memory(_imageData!.imageBytes); // No network widget created
+}
+// Only create network widgets if no cached data exists
+```
+
+### 📊 Performance Benefits
+
+#### **ListView Scrolling**
+* **✅ Zero network requests** after initial cache population
+* **✅ Instant image display** from IndexedDB cache during scrolling
+* **✅ Smooth scrolling performance** without loading indicators
+* **✅ Server stress elimination** - no repeated requests for same images
+* **✅ Bandwidth conservation** - images loaded once, cached persistently
+
+#### **Cross-Session Persistence**
+* **✅ Browser refresh** - images load instantly from IndexedDB
+* **✅ Tab reopening** - cached images available immediately
+* **✅ Session restoration** - no re-downloading of previously viewed images
+* **✅ Offline capability** - cached images viewable without network
+
+### 🧪 Comprehensive Testing
+
+#### **ListView Stress Testing**
+```dart
+// Test with 50+ images in ListView
+ListView.builder(
+  itemCount: 50,
+  itemBuilder: (context, index) {
+    return CustomNetworkImage(
+      url: 'https://picsum.photos/400/300?random=$index',
+      webStorageCacheConfig: WebStorageCacheConfig(
+        enabled: true,
+        maxCacheSize: 100 * 1024 * 1024, // 100MB
+        cacheExpirationHours: 168, // 7 days
+      ),
+    );
+  },
+)
+```
+
+#### **Performance Validation**
+1. **First scroll**: Network requests occur (normal behavior)
+2. **Refresh page (F5)**: Zero network requests in DevTools
+3. **Rapid scrolling**: Instant image display from cache
+4. **Cache statistics**: Real-time monitoring of cached image count and size
+
+### 🔧 Configuration Options
+
+#### **WebStorageCacheConfig Parameters**
+```dart
+WebStorageCacheConfig(
+  enabled: true,                    // Enable/disable IndexedDB caching
+  maxCacheSize: 100 * 1024 * 1024, // Maximum cache size in bytes (100MB)
+  cacheExpirationHours: 168,       // Cache expiration time (7 days)
+  cacheVersion: 1,                 // Cache version for invalidation
+)
+```
+
+#### **Cache Management**
+```dart
+// Get cache statistics
+final stats = await WebStorageCache.instance.getCacheStats();
+print('Cached images: ${stats['count']}');
+print('Cache size: ${stats['totalSizeMB']} MB');
+
+// Clear cache manually
+await WebStorageCache.instance.clearCache();
+
+// Clean up expired entries (automatic, but can be triggered manually)
+final cleanedCount = await WebStorageCache.instance.cleanupExpiredEntries();
+print('Cleaned up $cleanedCount expired entries');
+
+// Clean up with custom expiration time
+final customCleaned = await WebStorageCache.instance.cleanupExpiredEntries(
+  customExpirationHours: 24, // Clean entries older than 24 hours
+);
+```
+
+### 🎨 Enhanced Example App
+
+#### **New ListView Demo Tab**
+* **Visual Design**: Color-coded performance indicators
+* **Real-time Stats**: Live cache statistics display
+* **Testing Instructions**: Step-by-step performance testing guide
+* **Problem/Solution**: Clear explanation of original issue and fix
+* **Network Monitoring**: DevTools integration instructions
+
+#### **Comprehensive Documentation**
+* **Performance Testing**: Detailed testing procedures
+* **Cache Configuration**: Complete configuration examples
+* **Troubleshooting**: Debug logging and performance monitoring
+* **Best Practices**: Optimal cache settings for different use cases
+
+### 🔄 Backward Compatibility
+* **100% backward compatible** - existing code continues to work unchanged
+* **Optional enhancement** - IndexedDB caching enabled by default but configurable
+* **No breaking changes** - all existing parameters and functionality preserved
+* **Progressive adoption** - can be enabled/disabled per image or globally
+
+### 🌐 Platform Support
+
+| Platform | IndexedDB Cache | ListView Performance | Cross-Session |
+|----------|-----------------|---------------------|---------------|
+| **Web** | ✅ Full support | ✅ Optimized | ✅ Persistent |
+| **Mobile** | ❌ Not applicable | ✅ Memory optimization | ❌ Not applicable |
+| **Desktop** | ❌ Not applicable | ✅ Memory optimization | ❌ Not applicable |
+
+### 📱 Real-World Impact
+
+#### **Server Load Reduction**
+* **Before**: 100 images × 10 scroll cycles = 1,000 server requests
+* **After**: 100 images × 1 initial load = 100 server requests (90% reduction)
+
+#### **User Experience**
+* **Before**: Loading indicators during ListView scrolling
+* **After**: Instant image display with smooth scrolling
+* **Bandwidth**: Significant reduction in data usage for repeated viewing
+
+---
+
 ## 0.3.6 - Context Menu Positioning Fix
 
 ### 🐛 Bug Fixes

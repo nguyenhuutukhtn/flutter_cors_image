@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
@@ -150,4 +151,95 @@ class CopyAvailabilityStatus {
 
   /// Whether copy is unavailable (not waiting, just unavailable)
   bool get isUnavailable => !isAvailable && !isWaiting;
+}
+
+/// Web storage caching configuration
+class WebStorageCacheConfig {
+  /// Maximum cache size in bytes (default: 100MB)
+  final int maxCacheSize;
+  
+  /// Cache expiration time in hours (default: 168 hours = 7 days)
+  final int cacheExpirationHours;
+  
+  /// Whether to enable web storage caching (default: true on web)
+  final bool enabled;
+  
+  /// Cache version for invalidating old caches when format changes
+  final int cacheVersion;
+
+  const WebStorageCacheConfig({
+    this.maxCacheSize = 100 * 1024 * 1024, // 100MB
+    this.cacheExpirationHours = 168, // 7 days
+    this.enabled = true,
+    this.cacheVersion = 1,
+  });
+}
+
+/// Cached image data with metadata
+class CachedImageData {
+  final Uint8List imageBytes;
+  final int width;
+  final int height;
+  final String url;
+  final String contentType;
+  final DateTime cachedAt;
+  final int cacheVersion;
+
+  const CachedImageData({
+    required this.imageBytes,
+    required this.width,
+    required this.height,
+    required this.url,
+    required this.contentType,
+    required this.cachedAt,
+    required this.cacheVersion,
+  });
+
+  /// Convert to ImageDataInfo
+  ImageDataInfo toImageDataInfo() {
+    return ImageDataInfo(
+      imageBytes: imageBytes,
+      width: width,
+      height: height,
+      url: url,
+    );
+  }
+
+  /// Check if cache entry is expired
+  bool isExpired(int expirationHours) {
+    final now = DateTime.now();
+    final expirationTime = cachedAt.add(Duration(hours: expirationHours));
+    return now.isAfter(expirationTime);
+  }
+
+  /// Convert to Map for storage
+  Map<String, dynamic> toMap() {
+    return {
+      'imageBytes': imageBytes,
+      'width': width,
+      'height': height,
+      'url': url,
+      'contentType': contentType,
+      'cachedAt': cachedAt.millisecondsSinceEpoch,
+      'cacheVersion': cacheVersion,
+    };
+  }
+
+  /// Create from Map (for web storage with base64 decoding)
+  factory CachedImageData.fromMap(Map<String, dynamic> map) {
+    // Handle both base64 string (localStorage) and Uint8List (in-memory)
+    final imageBytes = map['imageBytes'] is String 
+        ? base64Decode(map['imageBytes'] as String)
+        : map['imageBytes'] as Uint8List;
+        
+    return CachedImageData(
+      imageBytes: imageBytes,
+      width: map['width'] as int,
+      height: map['height'] as int,
+      url: map['url'] as String,
+      contentType: map['contentType'] as String,
+      cachedAt: DateTime.fromMillisecondsSinceEpoch(map['cachedAt'] as int),
+      cacheVersion: map['cacheVersion'] as int,
+    );
+  }
 } 

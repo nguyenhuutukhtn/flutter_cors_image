@@ -4,6 +4,8 @@ import 'tap_example.dart' as tap_example;
 import 'zoom_example.dart' as zoom_example;
 import 'context_menu_demo.dart' as context_menu;
 import 'simple_usage_example.dart' as advanced_example;
+import 'web_storage_cache_demo.dart' as cache_demo;
+import 'listview_cache_demo.dart' as listview_demo;
 
 void main() {
   runApp(const UnifiedExampleApp());
@@ -39,7 +41,7 @@ class _UnifiedExampleScreenState extends State<UnifiedExampleScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -61,17 +63,21 @@ class _UnifiedExampleScreenState extends State<UnifiedExampleScreen>
             Tab(icon: Icon(Icons.touch_app), text: 'Tap Events'),
             Tab(icon: Icon(Icons.zoom_in), text: 'Zoom Support'),
             Tab(icon: Icon(Icons.menu), text: 'Context Menu'),
+            Tab(icon: Icon(Icons.storage), text: 'Web Cache'),
+            Tab(icon: Icon(Icons.list), text: 'ListView Test'),
             Tab(icon: Icon(Icons.settings), text: 'Advanced'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          const main_example.ExampleScreen(),
-          const tap_example.TapExampleScreen(),
-          const zoom_example.ZoomExampleScreen(),
-          const context_menu.ContextMenuDemoPage(),
+        children: const [
+          main_example.ExampleScreen(),
+          tap_example.TapExampleScreen(),
+          zoom_example.ZoomExampleScreen(),
+          context_menu.ContextMenuDemoPage(),
+          cache_demo.WebStorageCacheDemoPage(),
+          listview_demo.ListViewCacheDemoPage(),
           advanced_example.ComprehensiveImageExample(),
         ],
       ),

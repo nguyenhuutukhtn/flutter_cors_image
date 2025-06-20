@@ -2,29 +2,45 @@
 
 [![pub package](https://img.shields.io/pub/v/flutter_cors_image.svg)](https://pub.dev/packages/flutter_cors_image)
 
-A Flutter package that provides advanced image loading solutions for handling CORS issues, with modern hover icons, clipboard functionality, right-click context menus, and image data access.
+A Flutter package that provides advanced image loading solutions for handling CORS issues, with ListView performance optimization, IndexedDB caching, modern hover icons, clipboard functionality, right-click context menus, and image data access.
 
 ## 🚀 Live Demo
 
 Try out all the features interactively: **[https://nguyenhuutukhtn.github.io/flutter_cors_image/](https://nguyenhuutukhtn.github.io/flutter_cors_image/)**
 
-The demo includes 5 comprehensive examples:
+The demo includes 6 comprehensive examples:
 - **Basic Usage**: Core image loading with CORS handling and error states
 - **Tap Events**: Interactive tap functionality with counter examples  
 - **Zoom Support**: Pinch-to-zoom and click-to-zoom with transformation controls
 - **Context Menu**: Right-click context menus with custom actions (web only)
+- **ListView Test**: Performance testing with 50+ images demonstrating zero network requests after caching
 - **Advanced**: Hover icons, clipboard operations, and external controller management
 
 ## Features
 
-This package provides comprehensive image loading solutions:
+This package provides comprehensive image loading solutions with advanced performance optimizations:
+
+### ListView Performance Optimization (v0.3.7)
+
+**🚀 Major Performance Fix**: Resolves the critical ListView scrolling issue where repeated server requests were stressing servers.
+
+**IndexedDB Caching System**:
+- **Zero network requests** after initial cache population in ListView scrolling
+- **Cross-session persistence** - images cached across browser sessions
+- **Automatic cache management** with configurable size limits (100MB default)
+- **FIFO cleanup** when storage quota is reached
+- **Binary storage** in IndexedDB for better performance than localStorage
 
 ### CustomNetworkImage
 
 This approach follows this strategy:
-1. First, try to load the image using Flutter's normal `Image.network` widget
-2. If that fails on web platforms, automatically fall back to using an HTML img tag
-3. On native platforms, fall back to using `ExtendedImage` for additional compatibility
+1. **Check IndexedDB cache** - Instant display from browser storage (web only)
+2. **Try Flutter's Image.network** - Standard Flutter image loading
+3. **HTML img fallback** - Automatic fallback for CORS issues on web
+4. **ExtendedImage fallback** - Enhanced compatibility on native platforms
+5. **Cache in IndexedDB** - Store for future instant loading
+
+**New in v0.3.7**: ListView performance optimization with IndexedDB caching system that eliminates server stress from repeated requests.
 
 **New in v0.3.3**: Right-click context menu with native browser-like functionality for web platforms.
 
@@ -38,7 +54,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_cors_image: ^0.3.3
+  flutter_cors_image: ^0.3.7
 ```
 
 ## Usage
@@ -47,6 +63,36 @@ Import the package:
 
 ```dart
 import 'package:flutter_cors_image/flutter_cors_image.dart';
+```
+
+### ListView Performance with IndexedDB Caching (v0.3.7+):
+
+```dart
+// ✅ NEW v0.3.7: Optimized for ListView with IndexedDB caching
+ListView.builder(
+  itemCount: 100, // Large list of images
+  itemBuilder: (context, index) {
+    return CustomNetworkImage(
+      url: 'https://picsum.photos/400/300?random=$index',
+      width: 400,
+      height: 300,
+      fit: BoxFit.cover,
+      
+      // ✅ IndexedDB caching configuration (enabled by default)
+      webStorageCacheConfig: WebStorageCacheConfig(
+        enabled: true,                    // Enable persistent caching
+        maxCacheSize: 100 * 1024 * 1024, // 100MB cache limit
+        cacheExpirationHours: 168,       // 7 days expiration
+      ),
+    );
+  },
+)
+
+// 🎯 Performance Results:
+// - First scroll: Normal network requests (expected)
+// - Refresh page (F5): ZERO network requests (cached)
+// - Rapid scrolling: Instant image display from IndexedDB
+// - Server stress: Eliminated for repeat views
 ```
 
 ### Using Right-Click Context Menu (v0.3.3+):
@@ -268,11 +314,11 @@ class _ImageCopyExampleState extends State<ImageCopyExample> {
 
 ### Platform Support
 
-| Platform | Clipboard Copy | File Download |
-|----------|----------------|---------------|
-| **Web** | ✅ Modern Clipboard API | ✅ Blob download |
-| **Mobile** | ⚠️ Basic support* | ✅ Temp directory |
-| **Desktop** | ⚠️ File path copy | ✅ Temp directory |
+| Platform | IndexedDB Cache | Clipboard Copy | File Download | ListView Performance |
+|----------|-----------------|----------------|---------------|---------------------|
+| **Web** | ✅ Full support | ✅ Modern Clipboard API | ✅ Blob download | ✅ Optimized |
+| **Mobile** | ❌ Not applicable | ⚠️ Basic support* | ✅ Temp directory | ✅ Memory optimization |
+| **Desktop** | ❌ Not applicable | ⚠️ File path copy | ✅ Temp directory | ✅ Memory optimization |
 
 *For enhanced mobile clipboard support, consider adding plugins like `clipboard_manager` or `pasteboard`.
 
@@ -411,7 +457,192 @@ CustomNetworkImage(
 
 *Note: Context menus are primarily designed for web platforms where right-click functionality is standard.*
 
+## IndexedDB Caching Configuration (v0.3.7+)
+
+### WebStorageCacheConfig Options
+
+```dart
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  
+  // ✅ Configure IndexedDB caching
+  webStorageCacheConfig: WebStorageCacheConfig(
+    enabled: true,                    // Enable/disable caching
+    maxCacheSize: 100 * 1024 * 1024, // 100MB cache limit
+    cacheExpirationHours: 168,       // 7 days expiration
+    cacheVersion: 1,                 // Cache version for invalidation
+  ),
+)
+```
+
+### Cache Management
+
+```dart
+// Get cache statistics
+final stats = await WebStorageCache.instance.getCacheStats();
+print('Cached images: ${stats['count']}');
+print('Cache size: ${stats['totalSizeMB']} MB');
+print('Platform: ${stats['platform']}'); // 'web-IndexedDB'
+
+// Clear cache manually
+await WebStorageCache.instance.clearCache();
+print('Cache cleared successfully');
+
+// Clean up expired entries manually
+final cleanedCount = await WebStorageCache.instance.cleanupExpiredEntries();
+print('Cleaned up $cleanedCount expired entries');
+
+// Clean up with custom expiration (e.g., 24 hours)
+final customCleanedCount = await WebStorageCache.instance.cleanupExpiredEntries(
+  customExpirationHours: 24,
+);
+print('Cleaned up $customCleanedCount entries older than 24 hours');
+
+// Check if caching is available
+final isAvailable = await WebStorageCache.instance.isAvailable();
+print('IndexedDB available: $isAvailable');
+```
+
+### ListView Performance Testing
+
+```dart
+class ListViewPerformanceTest extends StatefulWidget {
+  @override
+  _ListViewPerformanceTestState createState() => _ListViewPerformanceTestState();
+}
+
+class _ListViewPerformanceTestState extends State<ListViewPerformanceTest> {
+  Map<String, dynamic> _cacheStats = {};
+  
+  @override
+  void initState() {
+    super.initState();
+    _updateCacheStats();
+  }
+  
+  Future<void> _updateCacheStats() async {
+    final stats = await WebStorageCache.instance.getCacheStats();
+    setState(() => _cacheStats = stats);
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('ListView Performance Test'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _updateCacheStats,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Cache statistics
+          Container(
+            padding: EdgeInsets.all(16),
+            color: Colors.blue.shade50,
+            child: Row(
+              children: [
+                Icon(Icons.storage, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('Cache: ${_cacheStats['count'] ?? 0} images'),
+                Spacer(),
+                Text('${_cacheStats['totalSizeMB']?.toStringAsFixed(1) ?? '0'} MB'),
+              ],
+            ),
+          ),
+          
+          // Performance test instructions
+          Container(
+            padding: EdgeInsets.all(16),
+            color: Colors.green.shade50,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('🧪 Performance Test Instructions:', 
+                     style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('1. First scroll: Network requests occur (normal)'),
+                Text('2. Refresh page (F5): Zero network requests'),
+                Text('3. Rapid scrolling: Instant image display'),
+                Text('4. Check DevTools Network tab for validation'),
+              ],
+            ),
+          ),
+          
+          // ListView with 50+ images
+          Expanded(
+            child: ListView.builder(
+              itemCount: 50,
+              itemBuilder: (context, index) {
+                return Container(
+                  margin: EdgeInsets.all(8),
+                  child: CustomNetworkImage(
+                    url: 'https://picsum.photos/400/300?random=$index',
+                    width: double.infinity,
+                    height: 200,
+                    fit: BoxFit.cover,
+                    webStorageCacheConfig: WebStorageCacheConfig(
+                      enabled: true,
+                      maxCacheSize: 100 * 1024 * 1024,
+                      cacheExpirationHours: 168,
+                    ),
+                    customLoadingBuilder: (context, child, progress) {
+                      return Container(
+                        height: 200,
+                        color: Colors.grey[200],
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(value: progress?.progress),
+                              SizedBox(height: 8),
+                              Text('Loading image ${index + 1}...'),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
 ## Migration Guide
+
+### v0.3.6 → v0.3.7
+
+#### **No Breaking Changes**
+All v0.3.6 code continues to work unchanged. IndexedDB caching is enabled by default and provides automatic performance improvements.
+
+#### **Automatic Performance Enhancement**
+```dart
+// Existing code (automatically gets IndexedDB caching)
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  width: 300,
+  height: 200,
+)
+
+// Enhanced with custom cache configuration
+CustomNetworkImage(
+  url: 'https://example.com/image.jpg',
+  width: 300,
+  height: 200,
+  webStorageCacheConfig: WebStorageCacheConfig(
+    maxCacheSize: 200 * 1024 * 1024, // 200MB
+    cacheExpirationHours: 336,       // 14 days
+  ),
+)
+```
 
 ### v0.2.x → v0.3.0
 
