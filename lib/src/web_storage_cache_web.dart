@@ -30,7 +30,7 @@ class WebStorageCacheWeb extends WebStorageCache {
     _dbCompleter = Completer<web.IDBDatabase>();
     
     try {
-      final request = web.window.indexedDB!.open(_dbName, _dbVersion);
+      final request = web.window.indexedDB.open(_dbName, _dbVersion);
       
       request.onupgradeneeded = (web.IDBVersionChangeEvent event) {
         final db = (event.target as web.IDBOpenDBRequest).result as web.IDBDatabase;
@@ -195,12 +195,13 @@ class WebStorageCacheWeb extends WebStorageCache {
       final request = store.getAll();
       
       request.onsuccess = (web.Event event) {
-        final results = (event.target as web.IDBRequest).result as JSArray;
+        final results = (event.target as web.IDBRequest).result as JSObject;
         int totalSize = 0;
-        int count = results.length.toInt();
+        final lengthProperty = results.getProperty('length'.toJS) as JSNumber;
+        int count = lengthProperty.toDartInt;
         
         for (int i = 0; i < count; i++) {
-          final item = results[i] as JSObject;
+          final item = results.getProperty(i.toJS) as JSObject;
           final imageBytes = item.getProperty('imageBytes'.toJS) as JSUint8Array;
           totalSize += imageBytes.toDart.length;
         }
@@ -247,12 +248,13 @@ class WebStorageCacheWeb extends WebStorageCache {
       final request = store.getAll();
       
       request.onsuccess = (web.Event event) {
-        final results = (event.target as web.IDBRequest).result as JSArray;
+        final results = (event.target as web.IDBRequest).result as JSObject;
         int totalSize = 0;
-        final count = results.length.toInt();
+        final lengthProperty = results.getProperty('length'.toJS) as JSNumber;
+        final count = lengthProperty.toDartInt;
         
         for (int i = 0; i < count; i++) {
-          final item = results[i] as JSObject;
+          final item = results.getProperty(i.toJS) as JSObject;
           final imageBytes = item.getProperty('imageBytes'.toJS) as JSUint8Array;
           totalSize += imageBytes.toDart.length;
         }
@@ -376,11 +378,12 @@ class WebStorageCacheWeb extends WebStorageCache {
       final request = store.getAll();
       
       request.onsuccess = (web.Event event) {
-        final results = (event.target as web.IDBRequest).result as JSArray;
+        final results = (event.target as web.IDBRequest).result as JSObject;
         final now = DateTime.now();
+        final lengthProperty = results.getProperty('length'.toJS) as JSNumber;
         
-        for (int i = 0; i < results.length.toInt(); i++) {
-          final item = results[i] as JSObject;
+        for (int i = 0; i < lengthProperty.toDartInt; i++) {
+          final item = results.getProperty(i.toJS) as JSObject;
           final cachedAtMs = (item.getProperty('cachedAt'.toJS) as JSNumber).toDartInt;
           final cacheVersion = (item.getProperty('cacheVersion'.toJS) as JSNumber).toDartInt;
           final url = (item.getProperty('url'.toJS) as JSString).toDart;
@@ -435,14 +438,15 @@ class WebStorageCacheWeb extends WebStorageCache {
       final completer = Completer<int>();
       final request = store.getAll();
       
-      request.onsuccess = (web.Event event) async {
-        final results = (event.target as web.IDBRequest).result as JSArray;
+      request.onsuccess = (web.Event event) {
+        final results = (event.target as web.IDBRequest).result as JSObject;
         final now = DateTime.now();
         final expirationHours = customExpirationHours ?? 168; // Default 7 days
         int cleanedCount = 0;
+        final lengthProperty = results.getProperty('length'.toJS) as JSNumber;
         
-        for (int i = 0; i < results.length.toInt(); i++) {
-          final item = results[i] as JSObject;
+        for (int i = 0; i < lengthProperty.toDartInt; i++) {
+          final item = results.getProperty(i.toJS) as JSObject;
           final cachedAtMs = (item.getProperty('cachedAt'.toJS) as JSNumber).toDartInt;
           final cacheVersion = (item.getProperty('cacheVersion'.toJS) as JSNumber).toDartInt;
           final url = (item.getProperty('url'.toJS) as JSString).toDart;
