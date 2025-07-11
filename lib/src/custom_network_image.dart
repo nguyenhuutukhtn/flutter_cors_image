@@ -336,60 +336,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       widget.controller!.updateLoadingState(_loadingState);
     }
     
-    // Register the view factory early if on web and likely to need it
-    if (kIsWeb) {
-      // Register the tap callback if we have one
-      if (widget.onTap != null) {
-        image_loader.setHtmlImageTapCallback(_viewType, () {
-          if (widget.onTap != null) {
-            widget.onTap!();
-          }
-        });
-      }
-      
-      // NEW: Register HTML error callback
-      image_loader.setHtmlImageErrorCallback(_viewType, () {
-        if (mounted) {
-          setState(() {
-            _htmlError = true;
-            _waitingForHtml = false;
-          });
-          
-          // Update controller state
-          if (widget.controller != null) {
-            widget.controller!.updateLoadingState(ImageLoadingState.failed);
-            widget.controller!.updateError('HTML fallback also failed');
-          }
-        }
-      });
-      
-      // NEW: Register HTML success callback
-      image_loader.setHtmlImageSuccessCallback(_viewType, () {
-        if (mounted) {
-          setState(() {
-            _waitingForHtml = false; // Hide loading overlay
-          });
-          
-          // IMPORTANT: Try to extract image data for copy functionality
-          // when HTML fallback succeeds
-          _tryExtractImageDataFromHtmlFallback();
-        }
-      });
-      
-      image_loader.registerHtmlImageFactory(
-        _viewType, 
-        widget.url,
-      );
-      
-      // Add transformation listener if controller is provided
-      if (widget.transformationController != null) {
-        widget.transformationController!.addListener(_handleTransformationChange);
-        
-        // Start the animation for continuous transformation updates
-        _transformSyncController.repeat();
-        _transformSyncController.addListener(_checkForTransformationUpdates);
-      }
-    }
+    // REMOVED: Don't register HTML view factory early - only when needed
+    // This prevents empty HTML elements from being created prematurely
     
     // Try loading the image asynchronously after initState completes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -407,55 +355,19 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     bool needsViewUpdate = oldWidget.url != widget.url || 
                           oldWidget.uniqueId != widget.uniqueId;
     
+    // Only update HTML view if we're actually using HTML fallback
     if (needsViewUpdate && kIsWeb && _loadError) {
       // Clean up old references
-      image_loader.removeHtmlImageTapCallback(_viewType);
-      image_loader.removeHtmlImageErrorCallback(_viewType);
-      image_loader.removeHtmlImageSuccessCallback(_viewType);
-      image_loader.cleanupHtmlElement(_viewType);
+      _cleanupHtmlResources();
       
       // Create new view type
       final newViewType = 'html-image-${widget.uniqueId ?? widget.url.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
       
-      // Register new callback and factory
-      if (widget.onTap != null) {
-        image_loader.setHtmlImageTapCallback(newViewType, () {
-          if (widget.onTap != null) {
-            widget.onTap!();
-          }
-        });
-      }
-      
-      // Register new error callback
-      image_loader.setHtmlImageErrorCallback(newViewType, () {
-        if (mounted) {
-          setState(() {
-            _htmlError = true;
-            _waitingForHtml = false;
-          });
-        }
-      });
-
-      // Register new success callback
-      image_loader.setHtmlImageSuccessCallback(newViewType, () {
-        if (mounted) {
-          setState(() {
-            _waitingForHtml = false; // Hide loading overlay
-          });
-          
-          // IMPORTANT: Try to extract image data for copy functionality
-          // when HTML fallback succeeds
-          _tryExtractImageDataFromHtmlFallback();
-        }
-      });
-
-      image_loader.registerHtmlImageFactory(newViewType, widget.url);
-      
       // Update view type
       _viewType = newViewType;
       
-      // Force reload
-      _preloadImage();
+      // Re-register HTML fallback with new view type and URL
+      _setHtmlFallbackState();
     }
     
     // Handle transformation controller changes
@@ -464,19 +376,20 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         oldWidget.transformationController!.removeListener(_handleTransformationChange);
       }
       
-      if (widget.transformationController != null) {
+      if (widget.transformationController != null && kIsWeb && _loadError) {
         widget.transformationController!.addListener(_handleTransformationChange);
         
         // Ensure animation controller is running if needed
-        if (!_transformSyncController.isAnimating && kIsWeb && _loadError) {
+        if (!_transformSyncController.isAnimating) {
           _transformSyncController.repeat();
+          _transformSyncController.addListener(_checkForTransformationUpdates);
         }
       } else if (_transformSyncController.isAnimating) {
         _transformSyncController.stop();
       }
     }
     
-    // If onTap changed, update the callback
+    // Handle onTap changes for HTML fallback
     if (oldWidget.onTap != widget.onTap && kIsWeb && _loadError) {
       if (widget.onTap != null) {
         image_loader.setHtmlImageTapCallback(_viewType, () {
@@ -491,6 +404,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     // If URL changed, reload the image
     if (oldWidget.url != widget.url) {
+      // Reset loading guard for URL change
+      _isCurrentlyLoading = false;
       _preloadImage();
     }
   }
@@ -502,14 +417,11 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       _removeContextMenu();
     }
     
-    // Clean up HTML resources
+    // Clean up HTML resources only if we're using HTML fallback
+    _cleanupHtmlResources();
+    
+    // NEW: Clean up JavaScript fetch function to prevent memory leaks
     if (kIsWeb) {
-      image_loader.removeHtmlImageTapCallback(_viewType);
-      image_loader.removeHtmlImageErrorCallback(_viewType);
-      image_loader.removeHtmlImageSuccessCallback(_viewType);
-      image_loader.cleanupHtmlElement(_viewType);
-      
-      // NEW: Clean up JavaScript fetch function to prevent memory leaks
       image_loader.cleanupCorsFunction(widget.url);
     }
     
@@ -533,6 +445,26 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       _imageStream!.removeListener(_imageStreamListener!);
       _imageStream = null;
       _imageStreamListener = null;
+    }
+  }
+  
+  // NEW: Clean up HTML resources (utility method)
+  void _cleanupHtmlResources() {
+    if (!kIsWeb || !_loadError) return;
+    
+    image_loader.removeHtmlImageTapCallback(_viewType);
+    image_loader.removeHtmlImageErrorCallback(_viewType);
+    image_loader.removeHtmlImageSuccessCallback(_viewType);
+    image_loader.cleanupHtmlElement(_viewType);
+    
+    // Remove transformation listener if it was added
+    if (widget.transformationController != null) {
+      widget.transformationController!.removeListener(_handleTransformationChange);
+    }
+    
+    // Stop animation controller if running
+    if (_transformSyncController.isAnimating) {
+      _transformSyncController.stop();
     }
   }
   
@@ -784,9 +716,59 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       widget.controller!.updateError('Failed to load image via CORS, using HTML fallback');
     }
     
-    // Start animation controller for HTML fallback if needed
-    if (widget.transformationController != null && !_transformSyncController.isAnimating) {
-      _transformSyncController.repeat();
+    // NEW: Register HTML view factory only when we need it (lazy registration)
+    if (kIsWeb) {
+      // Register the tap callback if we have one
+      if (widget.onTap != null) {
+        image_loader.setHtmlImageTapCallback(_viewType, () {
+          if (widget.onTap != null) {
+            widget.onTap!();
+          }
+        });
+      }
+      
+      // Register HTML error callback
+      image_loader.setHtmlImageErrorCallback(_viewType, () {
+        if (mounted) {
+          setState(() {
+            _htmlError = true;
+            _waitingForHtml = false;
+          });
+          
+          // Update controller state
+          if (widget.controller != null) {
+            widget.controller!.updateLoadingState(ImageLoadingState.failed);
+            widget.controller!.updateError('HTML fallback also failed');
+          }
+        }
+      });
+      
+      // Register HTML success callback
+      image_loader.setHtmlImageSuccessCallback(_viewType, () {
+        if (mounted) {
+          setState(() {
+            _waitingForHtml = false; // Hide loading overlay
+          });
+          
+          // IMPORTANT: Try to extract image data for copy functionality
+          // when HTML fallback succeeds
+          _tryExtractImageDataFromHtmlFallback();
+        }
+      });
+      
+      // Register the HTML view factory with the current URL
+      image_loader.registerHtmlImageFactory(_viewType, widget.url);
+      
+      // Add transformation listener if controller is provided
+      if (widget.transformationController != null) {
+        widget.transformationController!.addListener(_handleTransformationChange);
+        
+        // Start the animation for continuous transformation updates
+        if (!_transformSyncController.isAnimating) {
+          _transformSyncController.repeat();
+          _transformSyncController.addListener(_checkForTransformationUpdates);
+        }
+      }
     }
   }
 
@@ -1301,11 +1283,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   }
 
   Widget _buildHtmlImageView() {
-    // If we have a transformation controller, make sure it's reflected in HTML
-    if (widget.transformationController != null) {
-              image_loader.updateHtmlImageTransform(_viewType, widget.transformationController!.value);
-    }
-    
     // Use HtmlElementView for web platforms
     return kIsWeb
         ? SizedBox(
@@ -1315,6 +1292,17 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
               children: [
                 HtmlElementView(
                   viewType: _viewType,
+                  // Apply transformations after the HTML element is created
+                  onPlatformViewCreated: (int id) {
+                    // Schedule transformation update for next frame to ensure HTML element is ready
+                    if (widget.transformationController != null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          image_loader.updateHtmlImageTransform(_viewType, widget.transformationController!.value);
+                        }
+                      });
+                    }
+                  },
                 ),
                 // Show loading indicator while waiting for HTML to load/fail
                 if (_waitingForHtml)
@@ -1519,6 +1507,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                     width: double.infinity,
                     child: GestureDetector(
                       onTap: () {
+                        // Clean up HTML resources if we were using HTML fallback
+                        _cleanupHtmlResources();
+                        
                         // Reset error states and try reloading
                         setState(() {
                           _loadError = false;
@@ -1754,13 +1745,21 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
 
   // NEW: Controller callback handlers
   void _handleControllerReload() {
+    // Clean up HTML resources if we were using HTML fallback
+    _cleanupHtmlResources();
+    
     // Reset loading guard for controller-initiated reload
     _isCurrentlyLoading = false;
+    
     // Force reload by resetting the loaded state
-    _loadingState = ImageLoadingState.initial;
-    _imageData = null;
-    _loadError = false;
-    _htmlError = false;
+    setState(() {
+      _loadingState = ImageLoadingState.initial;
+      _imageData = null;
+      _loadError = false;
+      _htmlError = false;
+      _waitingForHtml = false;
+    });
+    
     _preloadImage();
   }
 

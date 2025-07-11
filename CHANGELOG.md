@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.8 - HTML Fallback Reliability Fix
+
+### 🐛 Bug Fixes
+* **Fixed HTML Fallback**: Resolved issue where HTML fallback would show empty content requiring user action to trigger rebuild
+* **Lazy HTML Registration**: Implemented lazy registration of HTML view factory to prevent premature element creation
+* **Improved State Management**: Better handling of HTML element lifecycle and cleanup
+* **Transformation Sync**: Enhanced transformation synchronization for HTML fallback elements
+
+### 🛠️ Technical Changes
+* HTML view factory now only registers when actually needed (lazy registration)
+* Added defensive checks for HTML element readiness before applying transformations
+* Improved cleanup of HTML resources to prevent memory leaks
+* Better state management for HTML fallback loading and error states
+
+### 🧪 Validation
+* ✅ HTML fallback now shows immediately when native image loading fails
+* ✅ No more empty states requiring user interaction
+* ✅ Transformations apply correctly to HTML fallback elements
+* ✅ Proper cleanup of HTML resources on widget disposal
+
 ## 0.3.7 - ListView Performance & IndexedDB Caching Release
 
 ### 🚀 Major Performance Improvements

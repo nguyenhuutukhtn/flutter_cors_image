@@ -30,7 +30,7 @@ class ExampleScreen extends StatelessWidget {
   
   // Example of a regular image
   static const String regularImageUrl = 
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Example_image.svg/600px-Example_image.svg.png';
+    'https://cdn-cs-staging.s3.ap-southeast-1.amazonaws.com/cs/2025/07/11/image/5ea36f6065e1868ddd5de38f3b766eda';
 
   @override
   Widget build(BuildContext context) {

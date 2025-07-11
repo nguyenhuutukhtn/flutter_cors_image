@@ -16,7 +16,8 @@ class ZoomExampleScreen extends StatefulWidget {
 
 class _ZoomExampleScreenState extends State<ZoomExampleScreen> {
   // Error image that needs HTML fallback
-  static const String errorImageUrl = 'https://cdn-cs-prod.s3.ap-southeast-1.amazonaws.com/20250422/image/57ae968a8a876c76aa04a406f6869cdb';
+  // static const String errorImageUrl = 'https://cdn-cs-prod.s3.ap-southeast-1.amazonaws.com/20250422/image/57ae968a8a876c76aa04a406f6869cdb';
+  static const String errorImageUrl = 'https://cdn-cs-staging.s3.ap-southeast-1.amazonaws.com/cs/2025/07/11/image/5ea36f6065e1868ddd5de38f3b766eda';
   
   // Normal image that should load normally
   static const String normalImageUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Example_image.svg/600px-Example_image.svg.png';
@@ -148,6 +149,17 @@ class _ZoomExampleScreenState extends State<ZoomExampleScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ImagePreviewExample(),
+                      ),
+                    );
+                  },
+                  child: const Text('Open Image Preview Example'),
+                ),
+                const SizedBox(height: 24),
                 Container(
                   width: 300,
                   padding: const EdgeInsets.all(16),
@@ -201,5 +213,92 @@ class _ZoomExampleScreenState extends State<ZoomExampleScreen> {
       controller.value = matrix;
     }
     onToggle();
+  }
+} 
+
+
+class ImagePreviewExample extends StatefulWidget {
+  const ImagePreviewExample({Key? key}) : super(key: key);
+
+  @override
+  _ImagePreviewExampleState createState() => _ImagePreviewExampleState();
+}
+
+class _ImagePreviewExampleState extends State<ImagePreviewExample> {
+  final TransformationController controller = TransformationController();
+  final CustomNetworkImageController _mainController = CustomNetworkImageController();
+  static const String errorImageUrl = 'https://cdn-cs-staging.s3.ap-southeast-1.amazonaws.com/cs/2025/07/11/image/5ea36f6065e1868ddd5de38f3b766eda';
+
+  @override
+  void dispose() {
+    controller.dispose();
+    _mainController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Image Preview Example'),
+      ),
+      body: _buildExtendedImage(errorImageUrl),
+    );
+  }
+
+  Widget _buildExtendedImage(dynamic imageData) {
+    final Widget image = CustomNetworkImage(
+      url: imageData,
+      fit: BoxFit.contain,
+      width: MediaQuery.of(context).size.width,
+      height: MediaQuery.of(context).size.height,
+      filterQuality: FilterQuality.high,
+      controller: _mainController,
+      enableContextMenu: true,
+    );
+
+    return MouseRegion(
+      cursor: _isZoomed() ? SystemMouseCursors.zoomOut : SystemMouseCursors.zoomIn,
+      child: GestureDetector(
+        onTapUp: _handleZoomToggle,
+        child: InteractiveViewer(
+          transformationController: controller,
+          minScale: 0.9,
+          maxScale: 4.0,
+          boundaryMargin: const EdgeInsets.all(100),
+          constrained: false,
+          panEnabled: true,
+          scaleEnabled: true,
+          child: image,
+          onInteractionEnd: (details) {
+            setState(() {});
+          },
+        ),
+      ),
+    );
+  }
+
+  bool _isZoomed() {
+    return controller.value != Matrix4.identity();
+  }
+
+  void _handleZoomToggle(TapUpDetails details) {
+    if (_isZoomed()) {
+      controller.value = Matrix4.identity();
+    } else {
+      final RenderBox box = context.findRenderObject() as RenderBox;
+      final Offset localPosition = box.globalToLocal(details.globalPosition);
+      
+      final double centerX = localPosition.dx;
+      final double centerY = localPosition.dy;
+      
+      final Matrix4 matrix = Matrix4.identity()
+        ..translate(centerX, centerY)
+        ..scale(2.0, 2.0)
+        ..translate(-centerX, -centerY);
+      
+      controller.value = matrix;
+    }
+    setState(() {});
   }
 } 
