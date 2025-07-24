@@ -34,7 +34,7 @@ jobs:
         run: flutter pub get
 
       - name: Build web app
-        run: flutter build web --web-renderer html --target example/unified_example.dart --base-href "/flutter_cors_image/"
+        run: flutter build web --target example/unified_example.dart --base-href "/flutter_cors_image/"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
