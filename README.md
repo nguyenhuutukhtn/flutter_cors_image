@@ -48,13 +48,23 @@ This approach follows this strategy:
 
 **New in v0.2.0**: Widget-based error handling with customizable error, reload, and open URL widgets. HTML errors now callback to Flutter for consistent UI across platforms.
 
+### Local File Support (v0.3.9+)
+
+**NEW:** Load images from local files (bytes, web File, or web Blob) with automatic HTML fallback for problematic formats (e.g., baseline JPEG on web). All features (hover icons, context menu, clipboard, download) work with local files too.
+
+- `localFileBytes` (Uint8List): Load from memory bytes (all platforms)
+- `webFile` (web File object): Load from file picker/drag & drop (web only)
+- `webBlob` (web Blob object): Load from Blob (web only)
+- Automatic HTML fallback for formats Flutter cannot decode on web
+- See `example/local_file_example.dart` for a full demo
+
 ## Installation
 
 Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_cors_image: ^0.3.7
+  flutter_cors_image: ^0.3.9
 ```
 
 ## Usage
@@ -311,6 +321,36 @@ class _ImageCopyExampleState extends State<ImageCopyExample> {
 - **`copyImageToClipboard`**: When using `CustomNetworkImage` with `onImageLoaded` callback
 - **`copyImageBytesToClipboard`**: When working with raw image data from other sources (camera, file picker, image processing, etc.)
 - **Both methods**: Provide identical clipboard functionality with different input formats
+
+### Local File Support (v0.3.9+):
+
+```dart
+// For local file bytes
+CustomNetworkImage(
+  localFileBytes: yourUint8ListBytes,
+  width: 300,
+  height: 200,
+  fit: BoxFit.contain,
+)
+
+// For web File object
+CustomNetworkImage(
+  webFile: yourHtmlFileObject,
+  width: 300,
+  height: 200,
+  fit: BoxFit.contain,
+)
+
+// For web Blob object
+CustomNetworkImage(
+  webBlob: yourBlobObject,
+  width: 300,
+  height: 200,
+  fit: BoxFit.contain,
+)
+```
+
+**Tip:** On web, use a file picker or drag & drop to get a File/Blob. See `example/local_file_example.dart` for a full working demo, including error handling and advanced UI.
 
 ### Platform Support
 

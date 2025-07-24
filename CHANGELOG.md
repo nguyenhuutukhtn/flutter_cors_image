@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.3.9 - Local File Support Release
+
+### 🚀 New Features
+* **Local File Support in CustomNetworkImage**: You can now display images from local files using the following parameters:
+  * `localFileBytes` (Uint8List) — works on all platforms
+  * `webFile` (web File object) — for Flutter web
+  * `webBlob` (web Blob object) — for Flutter web
+* **Automatic HTML Fallback**: On web, if Flutter fails to decode certain formats (e.g., baseline JPEG), the widget automatically falls back to HTML `<img>` for reliable display.
+* **Cross-Platform**: Works on web, mobile, and desktop. On web, supports file picker and drag & drop (see example).
+* **New Example**: See `example/local_file_example.dart` for a comprehensive demo and usage patterns.
+
+### 🛠️ Technical Notes
+* The widget tries to decode with Flutter first, then falls back to HTML if needed (especially for problematic JPEGs on web).
+* All hover icons, context menu, and clipboard/download features work with local files as well.
+* No breaking changes — all previous usage remains compatible.
+
+### 🧑‍💻 Usage
+```dart
+// For local file bytes
+CustomNetworkImage(
+  localFileBytes: yourUint8ListBytes,
+  width: 300,
+  height: 200,
+  fit: BoxFit.contain,
+)
+
+// For web File object
+CustomNetworkImage(
+  webFile: yourHtmlFileObject,
+  width: 300,
+  height: 200,
+  fit: BoxFit.contain,
+)
+
+// For web Blob object
+CustomNetworkImage(
+  webBlob: yourBlobObject,
+  width: 300,
+  height: 200,
+  fit: BoxFit.contain,
+)
+```
+
+---
+
 ## 0.3.8 - HTML Fallback Reliability Fix
 
 ### 🐛 Bug Fixes

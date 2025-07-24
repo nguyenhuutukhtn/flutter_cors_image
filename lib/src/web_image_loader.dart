@@ -479,3 +479,76 @@ void cleanupHtmlElement(String viewId) {
   _htmlElements.remove(viewId);
 }
 
+/// Create a FileReader object for reading web files
+dynamic createFileReader() {
+  return web.FileReader();
+}
+
+/// Set up FileReader callbacks
+void setFileReaderCallbacks(
+  dynamic reader,
+  {required Function(Uint8List?) onLoad,
+  required Function(String) onError}
+) {
+  final webReader = reader as web.FileReader;
+  
+  webReader.addEventListener('load', ((web.Event event) {
+    try {
+      final result = webReader.result;
+      if (result != null) {
+        // For FileReader.readAsArrayBuffer, result is an ArrayBuffer
+        // Use dynamic typing to avoid web API type issues
+        try {
+          final buffer = result as dynamic;
+          final dartBuffer = buffer.toDart;
+          final bytes = dartBuffer.asUint8List();
+          onLoad(bytes);
+        } catch (e) {
+          // Fallback: convert as List<int>
+          final bytes = Uint8List.fromList(List<int>.from(result as List));
+          onLoad(bytes);
+        }
+      } else {
+        onLoad(null);
+      }
+    } catch (e) {
+      onError(e.toString());
+    }
+  }).toJS);
+  
+  webReader.addEventListener('error', ((web.Event event) {
+    onError('FileReader error');
+  }).toJS);
+}
+
+/// Read a web File as array buffer
+void readFileAsArrayBuffer(dynamic reader, dynamic file) {
+  final webReader = reader as web.FileReader;
+  final webFile = file as web.File;
+  webReader.readAsArrayBuffer(webFile);
+}
+
+/// Read a web Blob as Uint8List
+Future<Uint8List?> readBlobAsUint8List(dynamic blob) async {
+  try {
+    final webBlob = blob as web.Blob;
+    final jsArrayBuffer = await webBlob.arrayBuffer().toDart;
+    // Use dynamic typing to avoid web API type issues
+    final dartBuffer = (jsArrayBuffer as dynamic).toDart;
+    return dartBuffer.asUint8List();
+  } catch (e) {
+    return null;
+  }
+}
+
+/// Create a data URL from image bytes
+String createDataUrlFromBytes(Uint8List bytes) {
+  // Convert bytes to base64
+  final base64String = web.window.btoa(
+    String.fromCharCodes(bytes)
+  );
+  
+  // Create data URL (assuming JPEG/PNG format)
+  return 'data:image/png;base64,$base64String';
+}
+

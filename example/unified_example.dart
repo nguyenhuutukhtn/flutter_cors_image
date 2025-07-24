@@ -6,6 +6,7 @@ import 'context_menu_demo.dart' as context_menu;
 import 'simple_usage_example.dart' as advanced_example;
 import 'web_storage_cache_demo.dart' as cache_demo;
 import 'listview_cache_demo.dart' as listview_demo;
+import 'local_file_example.dart' as local_file_example;
 
 void main() {
   runApp(const UnifiedExampleApp());
@@ -41,7 +42,7 @@ class _UnifiedExampleScreenState extends State<UnifiedExampleScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -65,6 +66,7 @@ class _UnifiedExampleScreenState extends State<UnifiedExampleScreen>
             Tab(icon: Icon(Icons.menu), text: 'Context Menu'),
             Tab(icon: Icon(Icons.storage), text: 'Web Cache'),
             Tab(icon: Icon(Icons.list), text: 'ListView Test'),
+            Tab(icon: Icon(Icons.folder), text: 'Local Files'),
             Tab(icon: Icon(Icons.settings), text: 'Advanced'),
           ],
         ),
@@ -78,6 +80,7 @@ class _UnifiedExampleScreenState extends State<UnifiedExampleScreen>
           context_menu.ContextMenuDemoPage(),
           cache_demo.WebStorageCacheDemoPage(),
           listview_demo.ListViewCacheDemoPage(),
+          local_file_example.LocalFileExampleScreen(),
           advanced_example.ComprehensiveImageExample(),
         ],
       ),

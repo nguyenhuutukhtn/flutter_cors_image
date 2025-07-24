@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -22,10 +23,18 @@ import 'web_context_menu_helper.dart' if (dart.library.io) 'stub_context_menu_he
 
 
 class CustomNetworkImage extends StatefulWidget {
-  final String url;
+  final String? url;
   final double? width;
   final double? height;
   final BoxFit fit;
+  
+  // NEW: Local file support
+  /// Local image bytes (Uint8List) - works on all platforms
+  final Uint8List? localFileBytes;
+  /// Web File object (for Flutter web only) - use dynamic type for cross-platform compatibility
+  final dynamic webFile;
+  /// Web Blob object (for Flutter web only) - use dynamic type for cross-platform compatibility
+  final dynamic webBlob;
   
   // Image.network parameters
   final double scale;
@@ -158,7 +167,8 @@ class CustomNetworkImage extends StatefulWidget {
 
   /// Creates a CustomNetworkImage.
   ///
-  /// The [url] parameter must not be null.
+  /// Either [url] for network images or one of [localFileBytes], [webFile], [webBlob] for local files must be provided.
+  /// For local files, the widget will try Flutter's Image.memory first, then fall back to HTML with data URLs or Blob URLs if needed.
   /// 
   /// For v0.2.0+, use [errorWidget], [reloadWidget], and [openUrlWidget] for error handling.
   /// The [errorBackgroundColor] can be used to customize the background color of the error state.
@@ -199,7 +209,11 @@ class CustomNetworkImage extends StatefulWidget {
   /// - Automatically manages cache cleanup when storage quota is reached
   const CustomNetworkImage({
     Key? key,
-    required this.url,
+    this.url,
+    // NEW: Local file parameters
+    this.localFileBytes,
+    this.webFile,
+    this.webBlob,
     this.width,
     this.height,
     this.fit = BoxFit.cover,
@@ -259,7 +273,27 @@ class CustomNetworkImage extends StatefulWidget {
     this.onContextMenuAction,
     this.contextToShowContextMenu,
     this.webStorageCacheConfig = const WebStorageCacheConfig(),
-  }) : super(key: key);
+  }) : assert(
+         (url != null) ^ (localFileBytes != null || webFile != null || webBlob != null),
+         'Either url or one of localFileBytes/webFile/webBlob must be provided, but not both'
+       ),
+       super(key: key);
+  
+  /// Helper getter to check if this is a local file
+  bool get isLocalFile => localFileBytes != null || webFile != null || webBlob != null;
+  
+  /// Helper getter to get display name for local files
+  String get displayName {
+    if (url != null) return url!;
+    if (webFile != null && kIsWeb) {
+      try {
+        return (webFile as dynamic).name ?? 'web_file';
+      } catch (e) {
+        return 'web_file';
+      }
+    }
+    return 'local_image';
+  }
 
   @override
   State<CustomNetworkImage> createState() => _CustomNetworkImageState();
@@ -317,7 +351,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     
     // Create a unique view type name for this widget instance
     // Include uniqueId if provided for better isolation in ListViews
-    _viewType = 'html-image-${widget.uniqueId ?? widget.url.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
+    final displayId = widget.uniqueId ?? widget.displayName.hashCode;
+    _viewType = 'html-image-$displayId-${DateTime.now().millisecondsSinceEpoch}';
     
     // Initialize animation controller for frequent transformation updates
     _transformSyncController = AnimationController(
@@ -351,9 +386,12 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   void didUpdateWidget(CustomNetworkImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     
-    // If URL or uniqueId changed, we need to update our references
+    // If URL/local file or uniqueId changed, we need to update our references
     bool needsViewUpdate = oldWidget.url != widget.url || 
-                          oldWidget.uniqueId != widget.uniqueId;
+                          oldWidget.uniqueId != widget.uniqueId ||
+                          oldWidget.localFileBytes != widget.localFileBytes ||
+                          oldWidget.webFile != widget.webFile ||
+                          oldWidget.webBlob != widget.webBlob;
     
     // Only update HTML view if we're actually using HTML fallback
     if (needsViewUpdate && kIsWeb && _loadError) {
@@ -361,7 +399,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       _cleanupHtmlResources();
       
       // Create new view type
-      final newViewType = 'html-image-${widget.uniqueId ?? widget.url.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
+      final displayId = widget.uniqueId ?? widget.displayName.hashCode;
+      final newViewType = 'html-image-$displayId-${DateTime.now().millisecondsSinceEpoch}';
       
       // Update view type
       _viewType = newViewType;
@@ -402,9 +441,12 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       }
     }
     
-    // If URL changed, reload the image
-    if (oldWidget.url != widget.url) {
-      // Reset loading guard for URL change
+    // If URL or local file changed, reload the image
+    if (oldWidget.url != widget.url ||
+        oldWidget.localFileBytes != widget.localFileBytes ||
+        oldWidget.webFile != widget.webFile ||
+        oldWidget.webBlob != widget.webBlob) {
+      // Reset loading guard for content change
       _isCurrentlyLoading = false;
       _preloadImage();
     }
@@ -421,8 +463,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     _cleanupHtmlResources();
     
     // NEW: Clean up JavaScript fetch function to prevent memory leaks
-    if (kIsWeb) {
-      image_loader.cleanupCorsFunction(widget.url);
+    if (kIsWeb && widget.url != null) {
+      image_loader.cleanupCorsFunction(widget.url!);
     }
     
     // Remove transformation listener
@@ -502,13 +544,26 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       return;
     }
     
-
+    // NEW: Handle local files first (they don't need web storage cache)
+    if (widget.isLocalFile) {
+      _preloadLocalFile();
+      return;
+    }
+    
+    // Ensure we have a URL for network images
+    if (widget.url == null) {
+      setState(() {
+        _loadingState = ImageLoadingState.failed;
+        _loadError = true;
+      });
+      return;
+    }
     
     // NEW: Check web storage cache (IndexedDB) for persistent caching
     if (kIsWeb && widget.webStorageCacheConfig.enabled) {
       try {
         final webCache = WebStorageCache.instance;
-        final cachedData = await webCache.getCachedImage(widget.url, widget.webStorageCacheConfig);
+        final cachedData = await webCache.getCachedImage(widget.url!, widget.webStorageCacheConfig);
         
         if (cachedData != null && mounted) {
           final imageData = cachedData.toImageDataInfo();
@@ -590,6 +645,256 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     }
   }
   
+  // NEW: Local file loading that handles Uint8List, Web File, or Web Blob
+  void _preloadLocalFile() async {
+    _isCurrentlyLoading = true;
+    
+    setState(() {
+      _loadingState = ImageLoadingState.loading;
+      _loadingProgress = const CustomImageProgress(cumulativeBytesLoaded: 0);
+      _loadError = false;
+      _htmlError = false;
+      _waitingForHtml = false;
+      _imageData = null;
+    });
+    
+    // Update controller state
+    if (widget.controller != null) {
+      widget.controller!.updateLoadingState(_loadingState);
+      widget.controller!.updateLoadingProgress(_loadingProgress);
+      widget.controller!.updateImageData(null);
+      widget.controller!.updateError(null);
+    }
+    
+    try {
+      Uint8List? imageBytes;
+      
+      // Get bytes from different local file sources
+      if (widget.localFileBytes != null) {
+        imageBytes = widget.localFileBytes!;
+      } else if (widget.webFile != null && kIsWeb) {
+        // Handle web File object
+        imageBytes = await _readWebFile(widget.webFile);
+      } else if (widget.webBlob != null && kIsWeb) {
+        // Handle web Blob object
+        imageBytes = await _readWebBlob(widget.webBlob);
+      }
+      
+      if (imageBytes != null && mounted) {
+        // Try to decode the image with Flutter first
+        try {
+          final codec = await ui.instantiateImageCodec(imageBytes);
+          final frame = await codec.getNextFrame();
+          final ui.Image image = frame.image;
+          
+          // Create image data
+          final imageData = ImageDataInfo(
+            imageBytes: imageBytes,
+            width: image.width,
+            height: image.height,
+            url: widget.displayName,
+          );
+          
+          // Update state - image loaded successfully
+          if (mounted) {
+            setState(() {
+              _loadingState = ImageLoadingState.loaded;
+              _loadingProgress = null;
+              _loadError = false;
+              _imageData = imageData;
+            });
+            
+            // Update controller state
+            if (widget.controller != null) {
+              widget.controller!.updateLoadingState(_loadingState);
+              widget.controller!.updateLoadingProgress(null);
+              widget.controller!.updateImageData(imageData);
+              widget.controller!.updateError(null);
+            }
+            
+            // Call callback if provided
+            if (widget.onImageLoaded != null) {
+              widget.onImageLoaded!(imageData);
+            }
+          }
+          
+          image.dispose();
+          _isCurrentlyLoading = false;
+          
+        } catch (decodeError) {
+          // Failed to decode with Flutter - try HTML fallback on web
+          if (kIsWeb && mounted) {
+            _setLocalFileHtmlFallback(imageBytes);
+          } else {
+            // On non-web platforms, show error
+            _setLocalFileError('Failed to decode image: $decodeError');
+          }
+          _isCurrentlyLoading = false;
+        }
+      } else {
+        // Failed to read file
+        _setLocalFileError('Failed to read local file');
+        _isCurrentlyLoading = false;
+      }
+      
+    } catch (e) {
+      // Error reading local file
+      _setLocalFileError('Error loading local file: $e');
+      _isCurrentlyLoading = false;
+    }
+  }
+  
+  // Helper method to read Web File (web only)
+  Future<Uint8List?> _readWebFile(dynamic file) async {
+    if (!kIsWeb) return null;
+    
+    try {
+      // Use FileReader to read the file as array buffer
+      final completer = Completer<Uint8List?>();
+      
+      // Create a FileReader using JavaScript interop
+      final reader = image_loader.createFileReader();
+      
+      // Set up callbacks
+      image_loader.setFileReaderCallbacks(
+        reader,
+        onLoad: (result) {
+          completer.complete(result);
+        },
+        onError: (error) {
+          completer.complete(null);
+        },
+      );
+      
+      // Start reading the file
+      image_loader.readFileAsArrayBuffer(reader, file);
+      
+      return await completer.future;
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  // Helper method to read Web Blob (web only)
+  Future<Uint8List?> _readWebBlob(dynamic blob) async {
+    if (!kIsWeb) return null;
+    
+    try {
+      // Convert Blob to ArrayBuffer and then to Uint8List
+      return await image_loader.readBlobAsUint8List(blob);
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  // Helper method to set HTML fallback for local files
+  void _setLocalFileHtmlFallback(Uint8List imageBytes) {
+    setState(() {
+      _loadingState = ImageLoadingState.failed;
+      _loadingProgress = null;
+      _loadError = true;
+      _waitingForHtml = true;
+      _imageData = null;
+    });
+    
+    // Update controller state
+    if (widget.controller != null) {
+      widget.controller!.updateLoadingState(_loadingState);
+      widget.controller!.updateLoadingProgress(null);
+      widget.controller!.updateImageData(null);
+      widget.controller!.updateError('Failed to decode with Flutter, using HTML fallback');
+    }
+    
+    // Register HTML view factory with data URL
+    if (kIsWeb) {
+      // Create data URL from bytes
+      final dataUrl = image_loader.createDataUrlFromBytes(imageBytes);
+      
+      // Register callbacks
+      _registerLocalFileHtmlCallbacks();
+      
+      // Register the HTML view factory with the data URL
+      image_loader.registerHtmlImageFactory(_viewType, dataUrl);
+    }
+  }
+  
+  // Helper method to set local file error
+  void _setLocalFileError(String error) {
+    if (mounted) {
+      setState(() {
+        _loadingState = ImageLoadingState.failed;
+        _loadingProgress = null;
+        _loadError = true;
+        _htmlError = true; // Both Flutter and HTML failed
+        _waitingForHtml = false;
+        _imageData = null;
+      });
+      
+      // Update controller state
+      if (widget.controller != null) {
+        widget.controller!.updateLoadingState(_loadingState);
+        widget.controller!.updateLoadingProgress(null);
+        widget.controller!.updateImageData(null);
+        widget.controller!.updateError(error);
+      }
+    }
+  }
+  
+  // Helper method to register HTML callbacks for local files
+  void _registerLocalFileHtmlCallbacks() {
+    // Register the tap callback if we have one
+    if (widget.onTap != null) {
+      image_loader.setHtmlImageTapCallback(_viewType, () {
+        if (widget.onTap != null) {
+          widget.onTap!();
+        }
+      });
+    }
+    
+    // Register HTML error callback
+    image_loader.setHtmlImageErrorCallback(_viewType, () {
+      if (mounted) {
+        setState(() {
+          _htmlError = true;
+          _waitingForHtml = false;
+        });
+        
+        // Update controller state
+        if (widget.controller != null) {
+          widget.controller!.updateLoadingState(ImageLoadingState.failed);
+          widget.controller!.updateError('Local file HTML fallback also failed');
+        }
+      }
+    });
+    
+    // Register HTML success callback
+    image_loader.setHtmlImageSuccessCallback(_viewType, () {
+      if (mounted) {
+        setState(() {
+          _waitingForHtml = false; // Hide loading overlay
+        });
+        
+        // For local files, we can't extract image data from HTML fallback easily
+        // since we already have the original bytes, but they failed to decode
+        if (widget.controller != null) {
+          widget.controller!.updateLoadingState(ImageLoadingState.loaded);
+          widget.controller!.updateError('Image loaded via HTML but original bytes failed to decode');
+        }
+      }
+    });
+    
+    // Add transformation listener if controller is provided
+    if (widget.transformationController != null) {
+      widget.transformationController!.addListener(_handleTransformationChange);
+      
+      // Start the animation for continuous transformation updates
+      if (!_transformSyncController.isAnimating) {
+        _transformSyncController.repeat();
+        _transformSyncController.addListener(_checkForTransformationUpdates);
+      }
+    }
+  }
+  
   // NEW: Web-specific image loading that fetches bytes first
   // OPTIMIZATION: This prevents duplicate network requests on web platforms
   // by fetching image bytes using fetch first, then displaying from memory.
@@ -599,7 +904,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     try {
       // Attempt to fetch image bytes with progress tracking
       final imageBytes = await image_loader.fetchImageBytesWithCors(
-        widget.url,
+        widget.url!,
         onProgress: (progress) {
           if (mounted) {
             // Estimate total bytes for progress (we'll get real size later)
@@ -636,7 +941,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             imageBytes: imageBytes,
             width: image.width,
             height: image.height,
-            url: widget.url,
+            url: widget.url ?? 'unknown',
           );
           
           
@@ -757,7 +1062,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       });
       
       // Register the HTML view factory with the current URL
-      image_loader.registerHtmlImageFactory(_viewType, widget.url);
+      if (widget.url != null) {
+        image_loader.registerHtmlImageFactory(_viewType, widget.url!);
+      }
       
       // Add transformation listener if controller is provided
       if (widget.transformationController != null) {
@@ -776,7 +1083,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   void _preloadImageNative() {
     // Use ExtendedImage's NetworkImageProvider for better caching and error handling
     final imageProvider = ExtendedNetworkImageProvider(
-      widget.url, 
+      widget.url!, 
       headers: widget.headers,
       cache: true,
       retries: 2,
@@ -816,7 +1123,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                   imageBytes: imageBytes,
                   width: info.image.width,
                   height: info.image.height,
-                  url: widget.url,
+                  url: widget.url ?? 'unknown',
                 );
                 
                 // Store image data and call callback
@@ -931,16 +1238,24 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
               stream.removeListener(listener);
               
               // Try CORS workaround when toByteData fails
-              final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url);
-              completer.complete(corsBytes);
+              if (widget.url != null) {
+                final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url!);
+                completer.complete(corsBytes);
+              } else {
+                completer.complete(null);
+              }
             }
           } catch (e) {
             stream.removeListener(listener);
             
             // Try CORS workaround when toByteData throws an exception
             try {
-              final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url);
-              completer.complete(corsBytes);
+              if (widget.url != null) {
+                final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url!);
+                completer.complete(corsBytes);
+              } else {
+                completer.complete(null);
+              }
             } catch (corsError) {
               completer.complete(null);
             }
@@ -959,8 +1274,11 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     } catch (e) {
       // Last resort: try CORS workaround
       try {
-        final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url);
-        return corsBytes;
+        if (widget.url != null) {
+          final corsBytes = await image_loader.fetchImageBytesWithCors(widget.url!);
+          return corsBytes;
+        }
+        return null;
       } catch (corsError) {
         return null;
       }
@@ -978,7 +1296,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     try {
       // Attempt to load the image again using ImageProvider to get bytes
       // This is a workaround since HTML img doesn't provide bytes directly
-      final imageProvider = NetworkImage(widget.url, headers: widget.headers);
+      if (widget.url == null) return;
+      final imageProvider = NetworkImage(widget.url!, headers: widget.headers);
       final imageBytes = await _getImageBytes(imageProvider);
       
       if (imageBytes != null && mounted) {
@@ -992,7 +1311,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             imageBytes: imageBytes,
             width: image.width,
             height: image.height,
-            url: widget.url,
+            url: widget.url ?? 'unknown',
           );
           
           // Update state
@@ -1025,7 +1344,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             imageBytes: imageBytes,
             width: 0, // Unknown
             height: 0, // Unknown
-            url: widget.url,
+            url: widget.url ?? 'unknown',
           );
           
           if (mounted) {
@@ -1127,8 +1446,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     // PRIORITY 6: If we haven't detected an error yet and don't have cached data, try network loading
     else if (!_loadError) {
       // Standard Flutter image loading (only when we don't have cached data)
-      imageWidget = Image.network(
-        widget.url,
+      imageWidget = widget.url != null ? Image.network(
+        widget.url!,
         key: _key,
         width: widget.width,
         height: widget.height,
@@ -1158,7 +1477,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             return _buildExtendedImageFallback();
           }
         },
-      );
+      ) : _buildFlutterErrorWidget();
     } else {
       // PRIORITY 7: Non-web fallback
       imageWidget = _buildExtendedImageFallback();
@@ -1196,7 +1515,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   /// Build context menu wrapper with right-click detection
   Widget _buildContextMenuWrapper(Widget child) {
     return DisableWebContextMenu(
-      identifier: 'image_${widget.url.hashCode}_${hashCode}',
+      identifier: 'image_${widget.displayName.hashCode}_$hashCode',
       onContextMenu: _showContextMenuAt,
       child: child,
     );
@@ -1228,7 +1547,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         return ImageContextMenu(
           position: overlayPosition,
           items: items,
-          imageUrl: widget.url,
+          imageUrl: widget.url ?? widget.displayName,
           imageData: _imageData,
           backgroundColor: widget.contextMenuBackgroundColor,
           textColor: widget.contextMenuTextColor,
@@ -1333,8 +1652,12 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   }
 
   Widget _buildExtendedImageFallback() {
+    if (widget.url == null) {
+      return _buildFlutterErrorWidget();
+    }
+    
     Widget image = ExtendedImage.network(
-      widget.url,
+      widget.url!,
       width: widget.width,
       height: widget.height,
       fit: widget.fit,
@@ -1544,7 +1867,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
                           try {
                             // Import dart:html dynamically to avoid issues on non-web platforms
                             // This will be handled by the conditional import
-                            openUrlInNewTab(widget.url);
+                            if (widget.url != null) {
+                              openUrlInNewTab(widget.url!);
+                            }
                           } catch (e) {
                             // Error opening URL
                           }
@@ -1610,7 +1935,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: widget.downloadIcon!,
@@ -1637,7 +1962,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: widget.copyIcon!,
