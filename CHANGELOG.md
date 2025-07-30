@@ -1,5 +1,122 @@
 # Changelog
 
+## 0.3.10 - Bug Analysis & Testing Release
+
+### 🐛 Bug Identification & Analysis
+
+#### **Bug 1: GIF Loading Issues**
+* **IDENTIFIED**: GIF images fail to load due to `ui.instantiateImageCodec()` limitations with animated GIFs
+* **Root Cause**: Flutter's image codec cannot properly decode animated GIF frames in certain contexts
+* **Location**: `custom_network_image.dart:935` (web loading) and `custom_network_image.dart:686` (local file loading)
+* **Impact**: Animated GIFs show error state instead of displaying properly
+
+#### **Bug 2: HTML Fallback Styling Issues**
+* **IDENTIFIED**: HTML fallback doesn't respect Flutter styling parameters (BoxFit, border radius)
+* **Root Cause**: 
+  - `web_image_loader.dart:400,421` uses hardcoded `objectFit = 'contain'` ignoring Flutter's BoxFit settings
+  - No CSS `border-radius` applied to HTML `<img>` elements
+  - HTML uses `width: 100%, height: 100%` without respecting Flutter's specific constraints
+* **Impact**: Visual inconsistency between Flutter rendering and HTML fallback rendering
+
+### 🧪 New Testing Features
+
+#### **Comprehensive Bug Test Suite**
+* **NEW**: `BugTestScreen` added to unified example app as "Bug Tests" tab
+* **NEW**: Interactive testing environment with real-time controls:
+  - BoxFit selector (cover, contain, fill, fitWidth, fitHeight, scaleDown, none)
+  - Border radius slider (0-50px range)
+  - Flutter vs HTML comparison toggle
+* **NEW**: Dedicated test sections for each identified bug:
+  - GIF loading test with animated GIF URL
+  - HTML fallback styling test with CORS-triggering image URL
+  - Side-by-side comparison of Flutter Image.network vs CustomNetworkImage
+
+#### **Enhanced Testing Tools**
+* **NEW**: Visual bug identification with color-coded sections
+* **NEW**: Expected behavior descriptions for each test case
+* **NEW**: Clear error states showing "Failed to Load" with bug attribution
+* **NEW**: Custom loading builders with progress indicators
+* **NEW**: Testing instructions with step-by-step validation guide
+
+#### **Test URLs & Scenarios**
+```dart
+// Test URLs for reproducing bugs
+final String _gifUrl = 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif';
+final String _corsImageUrl = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4';
+final String _regularImageUrl = 'https://picsum.photos/400/300?random=1';
+```
+
+### 🎯 Testing Instructions
+
+#### **Bug Reproduction Steps**
+1. **GIF Loading Bug**:
+   - Navigate to "Bug Tests" tab in unified example
+   - Observe animated GIF test case
+   - Expected: GIF may fail to load and show error state
+   - Actual: Error widget displays "This may be due to the GIF loading bug"
+
+2. **HTML Fallback Styling Bug**:
+   - Enable "Show Flutter vs HTML Comparison"
+   - Adjust BoxFit settings (cover, contain, etc.)
+   - Modify border radius slider
+   - Expected: HTML version (right) ignores BoxFit and border radius
+   - Actual: Visual differences between Flutter (left) and HTML fallback (right)
+
+#### **Validation Checklist**
+- [ ] GIF images show error state instead of animated content
+- [ ] HTML fallback images ignore BoxFit parameter changes
+- [ ] HTML fallback images don't apply border radius styling  
+- [ ] Flutter Image.network respects all styling parameters correctly
+- [ ] Browser developer tools show HTML `<img>` elements for fallback cases
+
+### 🔧 Developer Experience Improvements
+
+#### **Enhanced Example App**
+* **NEW**: 9th tab "Bug Tests" in unified example application
+* **NEW**: Interactive controls for real-time bug reproduction
+* **NEW**: Visual indicators showing expected vs actual behavior
+* **NEW**: Comprehensive testing instructions panel
+* **NEW**: Color-coded bug sections (orange for GIF issues, purple for styling issues)
+
+#### **Documentation Updates**
+* **NEW**: Bug analysis documentation in changelog
+* **NEW**: Root cause analysis for both identified issues
+* **NEW**: Code location references for debugging
+* **NEW**: Testing methodology and validation steps
+
+### 📱 Platform Support
+
+| Platform | GIF Bug Impact | HTML Styling Bug Impact | Testing Suite |
+|----------|----------------|-------------------------|---------------|
+| **Web** | ✅ Reproducible | ✅ Reproducible | ✅ Full support |
+| **Mobile** | ✅ Reproducible | ❌ HTML not used | ⚠️ Limited testing |
+| **Desktop** | ✅ Reproducible | ❌ HTML not used | ⚠️ Limited testing |
+
+### 🔄 Backward Compatibility
+* **100% backward compatible** - no breaking changes
+* **Optional testing** - bug test suite is additional functionality
+* **Existing functionality** - all previous features remain unchanged
+* **Progressive debugging** - use test suite to identify issues in existing implementations
+
+### 🎨 Usage Example
+
+```dart
+// Navigate to Bug Tests tab in unified example
+UnifiedExampleApp() // Now includes BugTestScreen as 9th tab
+
+// Or use directly for testing
+BugTestScreen() // Comprehensive bug reproduction environment
+```
+
+### 🛠️ Future Fixes (Roadmap)
+Based on this analysis, future releases will address:
+1. **GIF Loading**: Implement proper animated GIF codec handling
+2. **HTML Styling**: Pass Flutter BoxFit parameters to HTML CSS objectFit
+3. **Border Radius**: Apply CSS border-radius to HTML fallback elements
+4. **Constraint Handling**: Respect Flutter's width/height constraints in HTML
+
+---
+
 ## 0.3.9 - Local File Support Release
 
 ### 🚀 New Features
