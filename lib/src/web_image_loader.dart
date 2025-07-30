@@ -4,7 +4,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 // Import UI correctly for web
 import 'dart:ui_web' as ui_web;
-import 'package:flutter/material.dart' show Matrix4;
+import 'package:flutter/material.dart' show Matrix4, BoxFit;
 import 'dart:typed_data';
 
 /// Global callback map to handle taps for specific view IDs
@@ -44,6 +44,26 @@ void setWindowProperty(String name, JSAny value) {
 /// Helper function to delete a property from window
 void deleteWindowProperty(String name) {
   windowObject.delete(name.toJS);
+}
+
+/// Helper function to map Flutter BoxFit to CSS object-fit
+String _mapBoxFitToCss(BoxFit boxFit) {
+  switch (boxFit) {
+    case BoxFit.fill:
+      return 'fill';
+    case BoxFit.contain:
+      return 'contain';
+    case BoxFit.cover:
+      return 'cover';
+    case BoxFit.fitWidth:
+      return 'scale-down'; // Closest equivalent - scales down to fit width
+    case BoxFit.fitHeight:
+      return 'scale-down'; // Closest equivalent - scales down to fit height
+    case BoxFit.none:
+      return 'none';
+    case BoxFit.scaleDown:
+      return 'scale-down';
+  }
 }
 
 /// Fetch image bytes with CORS workaround for web platforms
@@ -329,11 +349,50 @@ void updateHtmlImageTransform(String viewId, Matrix4 matrix) {
   element.style.transformOrigin = 'center center';
 }
 
+/// Updates the styling of an existing HTML image element
+void updateHtmlImageStyling(
+  String viewId, {
+  BoxFit? boxFit,
+  double? borderRadius,
+}) {
+  final element = _htmlElements[viewId];
+  if (element == null) return;
+  
+  // Find the img element(s) within the div
+  final images = element.querySelectorAll('img');
+  for (int i = 0; i < images.length; i++) {
+    final img = images.item(i) as web.HTMLImageElement?;
+    if (img != null) {
+      // Update object-fit if BoxFit is provided
+      if (boxFit != null) {
+        img.style.objectFit = _mapBoxFitToCss(boxFit);
+      }
+    }
+  }
+  
+  // Update border radius on the container div if provided
+  if (borderRadius != null && borderRadius >= 0) {
+    if (borderRadius > 0) {
+      element.style.borderRadius = '${borderRadius}px';
+    } else {
+      element.style.borderRadius = '';
+    }
+  }
+}
+
 /// Registers an HTML view factory for displaying images
 /// This is used only on web platform
 /// 
 /// In v0.2.0+, HTML errors are handled via callbacks to Flutter widgets
-void registerHtmlImageFactory(String viewId, String url) {
+/// Updated to support Flutter styling parameters: BoxFit and border radius
+void registerHtmlImageFactory(
+  String viewId, 
+  String url, {
+  BoxFit boxFit = BoxFit.contain,
+  double borderRadius = 0.0,
+  double? width,
+  double? height,
+}) {
   // Register a web platform view factory
   ui_web.platformViewRegistry.registerViewFactory(
     viewId,
@@ -349,6 +408,11 @@ void registerHtmlImageFactory(String viewId, String url) {
       div.style.overflow = 'hidden';
       div.style.transformOrigin = 'center center';
       div.style.transition = 'transform 0.01s linear'; // Add a very slight transition for smoother updates
+      
+      // Apply border radius if specified
+      if (borderRadius > 0) {
+        div.style.borderRadius = '${borderRadius}px';
+      }
         
       // Store the element for later transformation
       _htmlElements[viewId] = div;
@@ -392,12 +456,15 @@ void registerHtmlImageFactory(String viewId, String url) {
         triggerErrorCallback();
       });
         
+      // Map BoxFit to CSS object-fit
+      final cssObjectFit = _mapBoxFitToCss(boxFit);
+      
       try {
         // First try direct image with CORS settings using package:web
         final imgElement = web.document.createElement('img') as web.HTMLImageElement;
         imgElement.src = url;
         imgElement.crossOrigin = 'anonymous';  // Try with CORS
-        imgElement.style.objectFit = 'contain';  // Changed to contain for better zoom behavior
+        imgElement.style.objectFit = cssObjectFit;  // Use mapped BoxFit value
         imgElement.style.width = '100%';
         imgElement.style.height = '100%';
         imgElement.style.maxWidth = '100%';
@@ -418,7 +485,7 @@ void registerHtmlImageFactory(String viewId, String url) {
           // Create img without CORS attribute as last resort
           final directImgElement = web.document.createElement('img') as web.HTMLImageElement;
           directImgElement.src = url;
-          directImgElement.style.objectFit = 'contain';  // Changed to contain for better zoom behavior
+          directImgElement.style.objectFit = cssObjectFit;  // Use mapped BoxFit value
           directImgElement.style.width = '100%';
           directImgElement.style.height = '100%';
           directImgElement.style.maxWidth = '100%';

@@ -14,7 +14,14 @@ void cleanupCorsFunction(String imageUrl) {
 }
 
 /// Stub implementation for registerHtmlImageFactory (not available on non-web platforms)
-void registerHtmlImageFactory(String viewType, String url) {
+void registerHtmlImageFactory(
+  String viewId, 
+  String url, {
+  dynamic boxFit, // Use dynamic to avoid importing Flutter types in stub
+  double borderRadius = 0.0,
+  double? width,
+  double? height,
+}) {
   // Not available on non-web platforms
 }
 
@@ -55,6 +62,15 @@ void cleanupHtmlElement(String viewType) {
 
 /// Stub implementation for updateHtmlImageTransform (not available on non-web platforms)
 void updateHtmlImageTransform(String viewType, Matrix4 transform) {
+  // Not available on non-web platforms
+}
+
+/// Stub implementation for updateHtmlImageStyling (not available on non-web platforms)
+void updateHtmlImageStyling(
+  String viewId, {
+  dynamic boxFit,
+  double? borderRadius,
+}) {
   // Not available on non-web platforms
 }
 

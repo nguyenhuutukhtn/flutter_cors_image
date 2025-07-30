@@ -109,7 +109,11 @@ class _BugTestScreenState extends State<BugTestScreen> {
   // Test URLs for different scenarios
   final String _gifUrl = 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif';
   final String _regularImageUrl = 'https://picsum.photos/400/300?random=1';
-  final String _corsImageUrl = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4';
+  // This URL is more likely to trigger CORS issues and force HTML fallback
+  final String _corsImageUrl = 'https://cdn-cs-uat.s3.ap-southeast-1.amazonaws.com/longterm/2025/07/30/media/dbc0c1cbef4d4c9dc95e0bcb022a4a5a';
+  // Alternative CORS-triggering URLs if the above doesn't work:
+  // final String _corsImageUrl = 'https://www.w3schools.com/css/img_5terre.jpg';
+  // final String _corsImageUrl = 'https://httpbin.org/image/jpeg';
 
   @override
   Widget build(BuildContext context) {
@@ -289,8 +293,50 @@ class _BugTestScreenState extends State<BugTestScreen> {
                       '   • GIF images failing to load (showing error state)\n'
                       '   • HTML fallback images ignoring BoxFit and border radius\n'
                       '   • Different behavior between Flutter and HTML rendering\n'
-                      '4. Check browser developer tools for HTML fallback usage\n'
-                      '5. Try refreshing to see different loading behaviors',
+                      '4. Check browser developer tools for HTML fallback usage:\n'
+                      '   • Look for <div> elements with <img> tags inside\n'
+                      '   • HTML fallback images will have "object-fit: contain" hardcoded\n'
+                      '5. Try refreshing to see different loading behaviors\n'
+                      '6. If CORS image loads normally, try the alternative URLs in comments',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Debug info
+            Card(
+              color: Colors.yellow.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.bug_report, color: Colors.orange.shade700),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Debug Info: Why BoxFit May Not Work',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'HTML Fallback Bug Explanation:\n'
+                      '• When Flutter image loading fails, the CustomNetworkImage falls back to HTML\n'
+                      '• The HTML <img> element uses hardcoded CSS: object-fit: contain;\n'
+                      '• This ignores Flutter\'s BoxFit parameter (cover, fill, etc.)\n'
+                      '• Border radius is also not applied to the HTML <img> element\n'
+                      '• Location: web_image_loader.dart lines 400 & 421\n\n'
+                      'To see this bug:\n'
+                      '1. The image must fail Flutter loading and use HTML fallback\n'
+                      '2. Check browser DevTools for <img> elements with object-fit: contain\n'
+                      '3. Try changing BoxFit - HTML version won\'t change its appearance',
                     ),
                   ],
                 ),

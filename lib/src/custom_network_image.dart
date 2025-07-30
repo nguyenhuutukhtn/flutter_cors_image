@@ -441,6 +441,18 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       }
     }
     
+    // Check if styling properties changed for HTML fallback update
+    bool needsStylingUpdate = oldWidget.fit != widget.fit;
+    
+    // Update HTML fallback styling if we're using HTML fallback and styling changed
+    if (needsStylingUpdate && kIsWeb && _loadError && !_htmlError) {
+      image_loader.updateHtmlImageStyling(
+        _viewType,
+        boxFit: widget.fit,
+        borderRadius: 0.0, // Border radius handled by ClipRRect wrapper
+      );
+    }
+    
     // If URL or local file changed, reload the image
     if (oldWidget.url != widget.url ||
         oldWidget.localFileBytes != widget.localFileBytes ||
@@ -813,8 +825,15 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       // Register callbacks
       _registerLocalFileHtmlCallbacks();
       
-      // Register the HTML view factory with the data URL
-      image_loader.registerHtmlImageFactory(_viewType, dataUrl);
+      // Register the HTML view factory with the data URL and styling parameters
+      image_loader.registerHtmlImageFactory(
+        _viewType, 
+        dataUrl,
+        boxFit: widget.fit,
+        borderRadius: 0.0, // Local files don't use ClipRRect border radius in HTML
+        width: widget.width,
+        height: widget.height,
+      );
     }
   }
   
@@ -1061,9 +1080,16 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         }
       });
       
-      // Register the HTML view factory with the current URL
+      // Register the HTML view factory with the current URL and styling parameters
       if (widget.url != null) {
-        image_loader.registerHtmlImageFactory(_viewType, widget.url!);
+        image_loader.registerHtmlImageFactory(
+          _viewType, 
+          widget.url!,
+          boxFit: widget.fit,
+          borderRadius: 0.0, // Border radius is handled by ClipRRect wrapper in Flutter
+          width: widget.width,
+          height: widget.height,
+        );
       }
       
       // Add transformation listener if controller is provided
