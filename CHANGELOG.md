@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.12 - HTML Fallback Styling Bug Fix Release
+## 0.3.11 - HTML Fallback Styling Bug Fix Release
 
 ### 🐛 Bug Fixes
 
