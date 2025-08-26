@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 // Conditional import for web-specific context menu functionality
 import 'web_context_menu_disable_helper.dart' if (dart.library.io) 'stub_context_menu_disable_helper.dart';
 
