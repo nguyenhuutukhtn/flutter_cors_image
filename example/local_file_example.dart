@@ -372,7 +372,7 @@ class _LocalFileExampleScreenState extends State<LocalFileExampleScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text('Dimensions: ${_loadedImageData!.width} × ${_loadedImageData!.height}'),
-                              Text('File size: ${(_loadedImageData!.imageBytes.length / 1024).toStringAsFixed(1)} KB'),
+                              Text('File size: ${(_loadedImageData!.imageBytes?.length ?? 0 / 1024).toStringAsFixed(1)} KB'),
                               Text('Display name: ${_loadedImageData!.url}'),
                               const SizedBox(height: 8),
                               Row(

@@ -187,10 +187,12 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                           final width = _imageData!.width;
                           final height = _imageData!.height;
                           
-                          print('🔍 DEBUG: Copying raw bytes: ${rawBytes.length} bytes, ${width}x${height}');
+                          if (rawBytes == null) {
+                            return;
+                          }
                           
                           final success = await ImageClipboardHelper.copyImageBytesToClipboard(
-                            rawBytes,
+                            rawBytes!,
                             width: width,
                             height: height,
                           );
@@ -291,8 +293,10 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
     
     // If we have existing image data, return a portion of it for testing
     if (_imageData != null) {
-      return _imageData!.imageBytes.sublist(0, 
-        _imageData!.imageBytes.length < 1000 ? _imageData!.imageBytes.length : 1000);
+      if (_imageData!.imageBytes != null) {
+        return _imageData!.imageBytes!.sublist(0, 
+          _imageData!.imageBytes!.length < 1000 ? _imageData!.imageBytes!.length : 1000);
+      }
     }
     
     return Uint8List.fromList(pngData);
@@ -328,7 +332,7 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text('Size: ${_imageData!.width}x${_imageData!.height}'),
-                      Text('File Size: ${(_imageData!.imageBytes.length / 1024).toStringAsFixed(1)} KB'),
+                      Text('File Size: ${(_imageData!.imageBytes?.length ?? 0 / 1024).toStringAsFixed(1)} KB'),
                     ],
                   ),
                 ],
@@ -468,7 +472,6 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                           hoverIconPosition: HoverIconPosition.topLeft,
                           hoverIconPadding: const EdgeInsets.all(4),
                           onImageLoaded: (imageData) {
-                            print('🔍 DEBUG: Heavy Controller 1 loaded: ${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB');
                           },
                         ),
                       ),
@@ -514,7 +517,6 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                           hoverIconPosition: HoverIconPosition.bottomRight,
                           hoverIconPadding: const EdgeInsets.all(4),
                           onImageLoaded: (imageData) {
-                            print('🔍 DEBUG: Heavy Controller 2 loaded: ${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB');
                           },
                         ),
                       ),
@@ -701,11 +703,10 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
                 // ✅ Image Data Callback (still works with controller)
                 onImageLoaded: (ImageDataInfo imageData) {
                   print('🔍 DEBUG: onImageLoaded called');
-                  print('🔍 DEBUG: Heavy image data: ${imageData.imageBytes.length} bytes (${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB), ${imageData.width}x${imageData.height}');
                   setState(() => _imageData = imageData);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('✅ Heavy image loaded! ${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB - Hover to see ${_selectedPosition.name} icons'),
+                      content: Text('✅ Heavy image loaded! ${(imageData.imageBytes?.length ?? 0 / 1024 / 1024).toStringAsFixed(1)} MB - Hover to see ${_selectedPosition.name} icons'),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -807,7 +808,6 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
             hoverIconSpacing: 4,
             
             onImageLoaded: (imageData) {
-              print('🔍 DEBUG: Position ${position.name} loaded: ${(imageData.imageBytes.length / 1024 / 1024).toStringAsFixed(1)} MB');
             },
           ),
         ),
@@ -887,7 +887,6 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
       return;
     }
     
-    print('🔍 DEBUG: Image data available: ${_imageData!.imageBytes.length} bytes, ${_imageData!.width}x${_imageData!.height}');
     
     try {
       print('🔍 DEBUG: Calling ImageClipboardHelper.downloadImage...');
@@ -927,7 +926,6 @@ class _ComprehensiveImageExampleState extends State<ComprehensiveImageExample> {
       return;
     }
     
-    print('🔍 DEBUG: Image data available: ${_imageData!.imageBytes.length} bytes, ${_imageData!.width}x${_imageData!.height}');
     
     try {
       print('🔍 DEBUG: Calling ImageClipboardHelper.copyImageToClipboard...');

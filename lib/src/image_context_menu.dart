@@ -228,13 +228,6 @@ class ImageContextMenu extends StatelessWidget {
   }
 
   Future<bool> _saveImage() async {
-    if (kDebugMode) {
-      print('Save image clicked. Image data available: ${imageData != null}');
-      if (imageData != null) {
-        print('Image data size: ${imageData!.imageBytes.length} bytes, ${imageData!.width}x${imageData!.height}');
-      }
-    }
-    
     try {
       if (imageData != null) {
         // Use image data if available

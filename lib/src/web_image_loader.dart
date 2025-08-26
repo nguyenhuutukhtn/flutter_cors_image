@@ -485,7 +485,6 @@ void registerHtmlImageFactory(
         imgElement.style.height = '100%';
         imgElement.style.maxWidth = '100%';
         imgElement.style.maxHeight = '100%';
-<<<<<<< HEAD
         imgElement.style.pointerEvents = 'none'; // Prevent image from interfering with gestures
         
         // SIMPLE FIX: Ensure image starts visible
@@ -493,10 +492,6 @@ void registerHtmlImageFactory(
         imgElement.style.visibility = 'visible';
         imgElement.style.display = 'block';
           
-=======
-        imgElement.style.pointerEvents = 'auto'; // Prevent image from interfering with gestures
-
->>>>>>> 8108499538a259adc1e5422517c2d90e4396b27d
         // Clear timeout on successful load using package:web event handling
         imgElement.addEventListener('load', ((web.Event event) {
           clearTimeoutForViewId();
@@ -525,7 +520,6 @@ void registerHtmlImageFactory(
           directImgElement.style.height = '100%';
           directImgElement.style.maxWidth = '100%';
           directImgElement.style.maxHeight = '100%';
-<<<<<<< HEAD
           directImgElement.style.pointerEvents = 'none'; // Prevent image from interfering with gestures
           
           // SIMPLE FIX: Ensure image starts visible
@@ -533,10 +527,6 @@ void registerHtmlImageFactory(
           directImgElement.style.visibility = 'visible';
           directImgElement.style.display = 'block';
           
-=======
-          directImgElement.style.pointerEvents = 'auto'; // Prevent image from interfering with gestures
-
->>>>>>> 8108499538a259adc1e5422517c2d90e4396b27d
           // Clear timeout on successful load of direct image
           directImgElement.addEventListener('load', ((web.Event event) {
             clearTimeoutForViewId();

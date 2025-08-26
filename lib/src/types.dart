@@ -66,13 +66,13 @@ class CustomImageProgress {
 
 /// Image data callback information
 class ImageDataInfo {
-  final Uint8List imageBytes;
+  final Uint8List? imageBytes;
   final int width;
   final int height;
   final String url;
 
   const ImageDataInfo({
-    required this.imageBytes,
+    this.imageBytes,
     required this.width,
     required this.height,
     required this.url,

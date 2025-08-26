@@ -1434,9 +1434,9 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     Widget imageWidget;
     
     // PRIORITY 1: If we have cached image data, ALWAYS display from bytes (prevents network requests)
-    if (_imageData != null) {
+    if (_imageData != null && _imageData!.imageBytes != null) {
       imageWidget = Image.memory(
-        _imageData!.imageBytes,
+        _imageData!.imageBytes!,
         key: _key,
         width: widget.width,
         height: widget.height,

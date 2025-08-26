@@ -190,7 +190,7 @@ class ImageOperationsHelper {
             SizedBox(height: 8),
             Text('URL: ${imageData.url}'),
             Text('Size: ${imageData.width}x${imageData.height}'),
-            Text('Data Size: ${(imageData.imageBytes.length / 1024).toStringAsFixed(1)} KB'),
+            Text('Data Size: ${(imageData.imageBytes?.length ?? 0 / 1024).toStringAsFixed(1)} KB'),
           ],
         ),
       ),

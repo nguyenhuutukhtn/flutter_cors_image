@@ -118,16 +118,20 @@ class WebStorageCacheWeb extends WebStorageCache {
     
     try {
       final db = await _initDB();
+
+      if (imageData.imageBytes == null) {
+        return false;
+      }
       
       // Check cache size before adding
       final currentSize = await _getCurrentCacheSize();
-      if (currentSize + imageData.imageBytes.length > config.maxCacheSize) {
+      if (currentSize + imageData.imageBytes!.length > config.maxCacheSize) {
         // Clean up old entries to make space
-        await _cleanupOldEntries(config.maxCacheSize - imageData.imageBytes.length);
+        await _cleanupOldEntries(config.maxCacheSize - imageData.imageBytes!.length);
       }
       
       final cachedData = CachedImageData(
-        imageBytes: imageData.imageBytes,
+        imageBytes: imageData.imageBytes!,
         width: imageData.width,
         height: imageData.height,
         url: imageData.url,

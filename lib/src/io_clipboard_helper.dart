@@ -143,12 +143,13 @@ Future<bool> copyImageBytesOnDesktop(Uint8List fileData) async {
 /// Save image to temp directory and return file path
 Future<String?> saveImageToTempFile(ImageDataInfo imageData) async {
   try {
+    if (imageData.imageBytes == null) return null;
     final fileName = 'image_${DateTime.now().millisecondsSinceEpoch}.png';
     final tempDir = Directory.systemTemp;
     final filePath = '${tempDir.path}/$fileName';
     
     final file = File(filePath);
-    await file.writeAsBytes(imageData.imageBytes);
+    await file.writeAsBytes(imageData.imageBytes!);
     
     return filePath;
   } catch (e) {
@@ -175,6 +176,7 @@ Future<String?> saveImageBytesToTempFile(Uint8List fileData) async {
 /// Save image to downloads directory (mobile/desktop)
 Future<String?> saveImageToDownloads(ImageDataInfo imageData) async {
   try {
+    if (imageData.imageBytes == null) return null;
     // For mobile/desktop, save to downloads or documents directory
     // You might want to use plugins like path_provider for proper downloads folder
     final fileName = 'image_${DateTime.now().millisecondsSinceEpoch}.png';
@@ -184,7 +186,7 @@ Future<String?> saveImageToDownloads(ImageDataInfo imageData) async {
     final filePath = '${tempDir.path}/$fileName';
     
     final file = File(filePath);
-    await file.writeAsBytes(imageData.imageBytes);
+    await file.writeAsBytes(imageData.imageBytes!);
     
     return filePath;
   } catch (e) {
