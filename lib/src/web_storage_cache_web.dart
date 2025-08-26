@@ -405,10 +405,7 @@ class WebStorageCacheWeb extends WebStorageCache {
             final deleteTransaction = _db!.transaction(_storeName.toJS, 'readwrite');
             final deleteStore = deleteTransaction.objectStore(_storeName);
             deleteStore.delete(url.toJS);
-            
-            if (kDebugMode) {
-              print('[WebStorageCache] 🧹 Cleaned up ${isExpired ? 'expired' : 'old version'} cache entry: $url');
-            }
+           
           }
         }
       }.toJS;
@@ -417,10 +414,7 @@ class WebStorageCacheWeb extends WebStorageCache {
         // Ignore cleanup errors
       }.toJS;
     } catch (e) {
-      // Ignore cleanup errors
-      if (kDebugMode) {
-        print('[WebStorageCache] Proactive cleanup error: $e');
-      }
+     
     }
   }
   
@@ -469,10 +463,6 @@ class WebStorageCacheWeb extends WebStorageCache {
             final deleteStore = deleteTransaction.objectStore(_storeName);
             deleteStore.delete(url.toJS);
             cleanedCount++;
-            
-            if (kDebugMode) {
-              print('[WebStorageCache] 🧹 Manual cleanup: ${isExpired ? 'expired' : 'old version'} cache entry: $url');
-            }
           }
         }
         
@@ -485,9 +475,6 @@ class WebStorageCacheWeb extends WebStorageCache {
       
       return completer.future;
     } catch (e) {
-      if (kDebugMode) {
-        print('[WebStorageCache] Manual cleanup error: $e');
-      }
       return 0;
     }
   }

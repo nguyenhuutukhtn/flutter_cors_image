@@ -886,7 +886,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     });
     
     // Register HTML success callback
-    image_loader.setHtmlImageSuccessCallback(_viewType, () {
+    image_loader.setHtmlImageSuccessCallback(_viewType, (String url, int width, int height) {
       if (mounted) {
         // CRITICAL FIX: Delay setState to prevent Flutter from overriding HTML visibility
         // The HTML element just loaded successfully, but Flutter's setState will rebuild
@@ -896,6 +896,17 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
             setState(() {
               _waitingForHtml = false; // Hide loading overlay
             });
+            
+            // NEW: Trigger onImageLoaded callback with imageBytes = null for HTML fallback
+            if (widget.onImageLoaded != null) {
+              final imageData = ImageDataInfo(
+                imageBytes: null, // Set to null for HTML fallback
+                width: width, // Use actual dimensions from HTML img element
+                height: height, // Use actual dimensions from HTML img element
+                url: url, // Use actual URL from HTML img element (data URL for local files)
+              );
+              widget.onImageLoaded!(imageData);
+            }
             
             // For local files, we can't extract image data from HTML fallback easily
             // since we already have the original bytes, but they failed to decode
@@ -1074,7 +1085,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       });
       
       // Register HTML success callback
-      image_loader.setHtmlImageSuccessCallback(_viewType, () {
+      image_loader.setHtmlImageSuccessCallback(_viewType, (String url, int width, int height) {
         if (mounted) {
           // CRITICAL FIX: Delay setState to prevent Flutter from overriding HTML visibility
           // The HTML element just loaded successfully, but Flutter's setState will rebuild
@@ -1084,6 +1095,17 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
               setState(() {
                 _waitingForHtml = false; // Hide loading overlay
               });
+              
+              // NEW: Trigger onImageLoaded callback with imageBytes = null for HTML fallback
+              if (widget.onImageLoaded != null) {
+                final imageData = ImageDataInfo(
+                  imageBytes: null, // Set to null for HTML fallback
+                  width: width, // Use actual dimensions from HTML img element
+                  height: height, // Use actual dimensions from HTML img element
+                  url: url, // Use actual URL from HTML img element
+                );
+                widget.onImageLoaded!(imageData);
+              }
               
               // IMPORTANT: Try to extract image data for copy functionality
               // when HTML fallback succeeds
@@ -1509,7 +1531,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         isAntiAlias: widget.isAntiAlias,
         errorBuilder: (context, error, stackTrace) {
           if (kIsWeb) {
-            print('[CustomNetworkImage] errorBuilder: $error');
             // We're already in error state, use HTML fallback
             return _buildHtmlImageView();
           } else {

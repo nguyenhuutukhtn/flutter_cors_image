@@ -75,19 +75,10 @@ class _DisableWebContextMenuState extends State<DisableWebContextMenu> implement
         // The paintBounds are in the local coordinate system, starting at (0,0).
         final inBounds = renderBox.paintBounds.contains(localPoint);
 
-        if (kDebugMode) {
-          print('[DisableWebContextMenu] Bounds check for point: $point');
-          print('[DisableWebContextMenu] Converted local point: $localPoint');
-          print('[DisableWebContextMenu] Widget paint bounds (local): ${renderBox.paintBounds}');
-          print('[DisableWebContextMenu] Point in bounds: $inBounds');
-        }
-        
         return inBounds;
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('[DisableWebContextMenu] Error in bounds check: $e');
-      }
+      print('Error in bounds check: $e');
     }
     
     return false;
@@ -96,9 +87,6 @@ class _DisableWebContextMenuState extends State<DisableWebContextMenu> implement
   /// Trigger the context menu callback
   @override
   void triggerContextMenu(Offset position) {
-    if (kDebugMode) {
-      print('[DisableWebContextMenu] triggerContextMenu called with position: $position');
-    }
     if (widget.onContextMenu != null) {
       widget.onContextMenu!(position);
     }

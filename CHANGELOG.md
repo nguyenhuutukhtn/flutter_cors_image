@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.3.13 - HTML Fallback onImageLoaded Enhancement Release
+
+### 🚀 New Features
+* **Enhanced onImageLoaded Callback**: HTML fallback now triggers `onImageLoaded` callback with actual image dimensions
+* **Real Image Dimensions**: `width` and `height` parameters now contain actual `naturalWidth` and `naturalHeight` from HTML `<img>` element
+* **Accurate URL Reporting**: Callback receives the actual loaded image URL from HTML element
+
+### 🔧 Technical Improvements
+* **Enhanced Callback Parameters**: HTML success callback now passes `(String url, int width, int height)` parameters
+* **Better Integration**: HTML fallback and Flutter image loading now provide consistent callback behavior
+* **Improved Debugging**: Added debug logging for HTML fallback dimensions
+
+### 💡 Usage Impact
+```dart
+CustomNetworkImage(
+  url: 'https://example.com/cors-restricted-image.jpg',
+  onImageLoaded: (imageData) {
+    // Now works for HTML fallback too!
+    print('Image loaded: ${imageData.imageBytes?.length} bytes'); // null for HTML fallback
+    print('Dimensions: ${imageData.width}x${imageData.height}'); // Actual dimensions from HTML
+    print('URL: ${imageData.url}'); // Actual loaded URL
+  },
+)
+```
+
+---
+
 ## 0.3.12 - Context Menu Fix Release
 
 ### 🐛 Bug Fixes

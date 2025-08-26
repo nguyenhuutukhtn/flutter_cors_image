@@ -189,9 +189,6 @@ class CustomNetworkImageController extends ChangeNotifier {
       // Now copy the image
       return await copyImageToClipboard();
     } catch (e) {
-      if (kDebugMode) {
-        print('Copy when ready error: $e');
-      }
       return false;
     }
   }
@@ -204,9 +201,6 @@ class CustomNetworkImageController extends ChangeNotifier {
     try {
       return await copyImageToClipboard();
     } catch (e) {
-      if (kDebugMode) {
-        print('Try copy error: $e');
-      }
       return false;
     }
   }

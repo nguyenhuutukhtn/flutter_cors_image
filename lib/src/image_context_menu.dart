@@ -37,20 +37,10 @@ class ImageContextMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (kDebugMode) {
-      print('ImageContextMenu.build() called');
-      print('Position: $position, Items count: ${items.length}');
-      print('ImageData: ${imageData != null ? 'available' : 'null'}');
-    }
-    
     // Get screen dimensions to ensure menu fits
     final screenSize = MediaQuery.of(context).size;
     final menuWidth = 250.0;
     final estimatedMenuHeight = items.length * 48.0 + 16.0; // Rough estimate
-    
-    if (kDebugMode) {
-      print('Screen size: $screenSize, Menu size: ${menuWidth}x$estimatedMenuHeight');
-    }
     
     // Adjust position to keep menu on screen
     double left = position.dx;
@@ -71,11 +61,6 @@ class ImageContextMenu extends StatelessWidget {
     
     // Ensure menu doesn't go off top edge
     if (top < 0) top = 16;
-    
-    if (kDebugMode) {
-      print('Final menu position: left=$left, top=$top');
-      print('Creating Material with Stack containing ${items.length} menu items');
-    }
     
     return Material(
       color: Colors.transparent,
@@ -202,11 +187,7 @@ class ImageContextMenu extends StatelessWidget {
                            message.contains('❌') ? Colors.red : null,
           ),
         );
-      } else {
-        if (kDebugMode) {
-          print('Could not show message "$message" - no ScaffoldMessenger available');
-        }
-      }
+      } 
     } catch (e) {
       // ScaffoldMessenger is no longer valid, ignore the message
       if (kDebugMode) {
@@ -230,42 +211,25 @@ class ImageContextMenu extends StatelessWidget {
   Future<bool> _saveImage() async {
     try {
       if (imageData != null) {
-        // Use image data if available
-        if (kDebugMode) {
-          print('Attempting to download image using ImageClipboardHelper...');
-        }
+
         final success = await ImageClipboardHelper.downloadImage(imageData!);
-        if (kDebugMode) {
-          print('Download result: $success');
-        }
         if (!success) {
-          if (kDebugMode) {
-            print('ImageClipboardHelper failed, trying URL fallback...');
-          }
           final urlSuccess = await _downloadImageFromUrl();
           return urlSuccess;
         }
         return success;
       } else {
         // Fallback: download directly from URL
-        if (kDebugMode) {
-          print('No image data available, using URL fallback...');
-        }
+   
         final urlSuccess = await _downloadImageFromUrl();
         return urlSuccess;
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Failed to save image: $e');
-        print('Attempting URL fallback after error...');
-      }
+ 
       try {
         final fallbackSuccess = await _downloadImageFromUrl();
         return fallbackSuccess;
       } catch (fallbackError) {
-        if (kDebugMode) {
-          print('URL fallback also failed: $fallbackError');
-        }
         return false;
       }
     }
@@ -289,11 +253,8 @@ class ImageContextMenu extends StatelessWidget {
   Future<void> _copyImageUrl() async {
     try {
       await TextClipboardHelper.copyTextToClipboard(imageUrl);
-      if (kDebugMode) {
-        print('Copied image URL to clipboard: $imageUrl');
-      }
     } catch (e) {
-      if (kDebugMode) {
+      if (kDebugMode){
         print('Failed to copy image URL: $e');
       }
     }

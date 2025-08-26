@@ -56,10 +56,13 @@ class _TapExampleScreenState extends State<TapExampleScreen> {
                         SnackBar(content: Text('Problem image tapped! Count: $problemTapCount')),
                       );
                     },
-                    child: const CustomNetworkImage(
+                    child:  CustomNetworkImage(
                       url: errorImageUrl,
                       width: 300,
                       height: 300,
+                      onImageLoaded: (imageData) {
+                        print('Image loaded: ${imageData.imageBytes?.length} width: ${imageData.width} height: ${imageData.height}');
+                      },
                     ),
                   ),
                 ),

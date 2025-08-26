@@ -98,9 +98,6 @@ Future<bool> downloadImageFromUrl(String imageUrl) async {
   if (!kIsWeb) return false;
   
   try {
-    if (kDebugMode) {
-      print('Starting proper image download for: $imageUrl');
-    }
     
     // Use JavaScript to fetch the image as blob and trigger save-as dialog
     // We create a function that returns a Promise we can await

@@ -14,7 +14,8 @@ final Map<String, Function> _htmlImageTapCallbacks = {};
 final Map<String, Function> _htmlImageErrorCallbacks = {};
 
 /// Global callback map to handle HTML image success for specific view IDs  
-final Map<String, Function> _htmlImageSuccessCallbacks = {};
+/// Each callback receives (String url, int width, int height) parameters
+final Map<String, Function(String, int, int)> _htmlImageSuccessCallbacks = {};
 
 /// Mapping of viewIds to their HTML div elements for transformation
 final Map<String, web.HTMLElement> _htmlElements = {};
@@ -344,7 +345,8 @@ void setHtmlImageErrorCallback(String viewId, Function callback) {
 }
 
 /// Sets the success callback function for a specific HTML image
-void setHtmlImageSuccessCallback(String viewId, Function callback) {
+/// The callback receives (String url, int width, int height) parameters
+void setHtmlImageSuccessCallback(String viewId, Function(String, int, int) callback) {
   _htmlImageSuccessCallbacks[viewId] = callback;
 }
 
@@ -452,10 +454,16 @@ void registerHtmlImageFactory(
         }
       }
 
-      // Helper function to trigger success callback
-      void triggerSuccessCallback() {
+      // Helper function to trigger success callback with image dimensions
+      void triggerSuccessCallback(web.HTMLImageElement imgElement) {
         if (_htmlImageSuccessCallbacks.containsKey(viewId)) {
-          _htmlImageSuccessCallbacks[viewId]!();
+          // Extract image dimensions and URL from the loaded img element
+          final imageUrl = imgElement.src;
+          final naturalWidth = imgElement.naturalWidth;
+          final naturalHeight = imgElement.naturalHeight;
+          
+          // Call the callback with URL and dimensions as parameters
+          _htmlImageSuccessCallbacks[viewId]!(imageUrl, naturalWidth, naturalHeight);
         }
       }
 
@@ -504,7 +512,7 @@ void registerHtmlImageFactory(
           // NEW: Force browser reflow to ensure visibility
           _forceHtmlElementVisibility(imgElement);
           
-          triggerSuccessCallback();
+          triggerSuccessCallback(imgElement);
         }).toJS);
           
         // Add error handler to try fallback without CORS
@@ -539,7 +547,7 @@ void registerHtmlImageFactory(
             // NEW: Force browser reflow to ensure visibility
             _forceHtmlElementVisibility(directImgElement);
             
-            triggerSuccessCallback();
+            triggerSuccessCallback(directImgElement);
           }).toJS);
             
           // Handle error in the last resort approach - trigger Flutter callback
