@@ -66,6 +66,21 @@ String _mapBoxFitToCss(BoxFit boxFit) {
   }
 }
 
+/// Helper function to force HTML element visibility and trigger browser reflow
+void _forceHtmlElementVisibility(web.HTMLElement element) {
+  // Force browser reflow by temporarily changing and restoring properties
+  final originalDisplay = element.style.display;
+  
+  // Trigger reflow
+  element.style.display = 'none';
+  element.offsetHeight; // Force reflow
+  element.style.display = originalDisplay;
+  
+  // Ensure visibility
+  element.style.visibility = 'visible';
+  element.style.opacity = '1';
+}
+
 /// Fetch image bytes with CORS workaround for web platforms
 Future<Uint8List?> fetchImageBytesWithCors(String imageUrl, {Function(double)? onProgress}) async {
   try {
@@ -470,10 +485,24 @@ void registerHtmlImageFactory(
         imgElement.style.maxWidth = '100%';
         imgElement.style.maxHeight = '100%';
         imgElement.style.pointerEvents = 'none'; // Prevent image from interfering with gestures
-
+        
+        // SIMPLE FIX: Ensure image starts visible
+        imgElement.style.opacity = '1';
+        imgElement.style.visibility = 'visible';
+        imgElement.style.display = 'block';
+          
         // Clear timeout on successful load using package:web event handling
         imgElement.addEventListener('load', ((web.Event event) {
           clearTimeoutForViewId();
+          
+          // SIMPLE FIX: Ensure image is immediately visible
+          imgElement.style.opacity = '1';
+          imgElement.style.visibility = 'visible';
+          imgElement.style.display = 'block';
+          
+          // NEW: Force browser reflow to ensure visibility
+          _forceHtmlElementVisibility(imgElement);
+          
           triggerSuccessCallback();
         }).toJS);
           
@@ -491,10 +520,24 @@ void registerHtmlImageFactory(
           directImgElement.style.maxWidth = '100%';
           directImgElement.style.maxHeight = '100%';
           directImgElement.style.pointerEvents = 'none'; // Prevent image from interfering with gestures
-
+          
+          // SIMPLE FIX: Ensure image starts visible
+          directImgElement.style.opacity = '1';
+          directImgElement.style.visibility = 'visible';
+          directImgElement.style.display = 'block';
+          
           // Clear timeout on successful load of direct image
           directImgElement.addEventListener('load', ((web.Event event) {
             clearTimeoutForViewId();
+            
+            // SIMPLE FIX: Ensure image is immediately visible
+            directImgElement.style.opacity = '1';
+            directImgElement.style.visibility = 'visible';
+            directImgElement.style.display = 'block';
+            
+            // NEW: Force browser reflow to ensure visibility
+            _forceHtmlElementVisibility(directImgElement);
+            
             triggerSuccessCallback();
           }).toJS);
             

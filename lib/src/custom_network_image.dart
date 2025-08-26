@@ -889,16 +889,23 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
     // Register HTML success callback
     image_loader.setHtmlImageSuccessCallback(_viewType, () {
       if (mounted) {
-        setState(() {
-          _waitingForHtml = false; // Hide loading overlay
+        // CRITICAL FIX: Delay setState to prevent Flutter from overriding HTML visibility
+        // The HTML element just loaded successfully, but Flutter's setState will rebuild
+        // and potentially override the HTML element's visibility
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            setState(() {
+              _waitingForHtml = false; // Hide loading overlay
+            });
+            
+            // For local files, we can't extract image data from HTML fallback easily
+            // since we already have the original bytes, but they failed to decode
+            if (widget.controller != null) {
+              widget.controller!.updateLoadingState(ImageLoadingState.loaded);
+              widget.controller!.updateError('Image loaded via HTML but original bytes failed to decode');
+            }
+          }
         });
-        
-        // For local files, we can't extract image data from HTML fallback easily
-        // since we already have the original bytes, but they failed to decode
-        if (widget.controller != null) {
-          widget.controller!.updateLoadingState(ImageLoadingState.loaded);
-          widget.controller!.updateError('Image loaded via HTML but original bytes failed to decode');
-        }
       }
     });
     
@@ -1070,13 +1077,20 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       // Register HTML success callback
       image_loader.setHtmlImageSuccessCallback(_viewType, () {
         if (mounted) {
-          setState(() {
-            _waitingForHtml = false; // Hide loading overlay
+          // CRITICAL FIX: Delay setState to prevent Flutter from overriding HTML visibility
+          // The HTML element just loaded successfully, but Flutter's setState will rebuild
+          // and potentially override the HTML element's visibility
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) {
+              setState(() {
+                _waitingForHtml = false; // Hide loading overlay
+              });
+              
+              // IMPORTANT: Try to extract image data for copy functionality
+              // when HTML fallback succeeds
+              _tryExtractImageDataFromHtmlFallback();
+            }
           });
-          
-          // IMPORTANT: Try to extract image data for copy functionality
-          // when HTML fallback succeeds
-          _tryExtractImageDataFromHtmlFallback();
         }
       });
       
