@@ -47,7 +47,7 @@ void deleteWindowProperty(String name) {
 }
 
 /// Helper function to map Flutter BoxFit to CSS object-fit
-String _mapBoxFitToCss(BoxFit boxFit) {
+String _mapBoxFitToCss(BoxFit? boxFit) {
   switch (boxFit) {
     case BoxFit.fill:
       return 'fill';
@@ -63,6 +63,8 @@ String _mapBoxFitToCss(BoxFit boxFit) {
       return 'none';
     case BoxFit.scaleDown:
       return 'scale-down';
+    default:
+      return 'contain';
   }
 }
 
@@ -379,9 +381,7 @@ void updateHtmlImageStyling(
     final img = images.item(i) as web.HTMLImageElement?;
     if (img != null) {
       // Update object-fit if BoxFit is provided
-      if (boxFit != null) {
-        img.style.objectFit = _mapBoxFitToCss(boxFit);
-      }
+      img.style.objectFit = _mapBoxFitToCss(boxFit);
     }
   }
   
@@ -419,10 +419,11 @@ void registerHtmlImageFactory(
       div.style.display = 'flex';
       div.style.alignItems = 'center';
       div.style.justifyContent = 'center';
-      div.style.cursor = 'pointer';
+      div.style.cursor = 'auto';
       div.style.overflow = 'hidden';
       div.style.transformOrigin = 'center center';
       div.style.transition = 'transform 0.01s linear'; // Add a very slight transition for smoother updates
+      div.style.objectFit = _mapBoxFitToCss(boxFit);
       
       // Apply border radius if specified
       if (borderRadius > 0) {
@@ -484,6 +485,7 @@ void registerHtmlImageFactory(
         imgElement.style.height = '100%';
         imgElement.style.maxWidth = '100%';
         imgElement.style.maxHeight = '100%';
+<<<<<<< HEAD
         imgElement.style.pointerEvents = 'none'; // Prevent image from interfering with gestures
         
         // SIMPLE FIX: Ensure image starts visible
@@ -491,6 +493,10 @@ void registerHtmlImageFactory(
         imgElement.style.visibility = 'visible';
         imgElement.style.display = 'block';
           
+=======
+        imgElement.style.pointerEvents = 'auto'; // Prevent image from interfering with gestures
+
+>>>>>>> 8108499538a259adc1e5422517c2d90e4396b27d
         // Clear timeout on successful load using package:web event handling
         imgElement.addEventListener('load', ((web.Event event) {
           clearTimeoutForViewId();
@@ -519,6 +525,7 @@ void registerHtmlImageFactory(
           directImgElement.style.height = '100%';
           directImgElement.style.maxWidth = '100%';
           directImgElement.style.maxHeight = '100%';
+<<<<<<< HEAD
           directImgElement.style.pointerEvents = 'none'; // Prevent image from interfering with gestures
           
           // SIMPLE FIX: Ensure image starts visible
@@ -526,6 +533,10 @@ void registerHtmlImageFactory(
           directImgElement.style.visibility = 'visible';
           directImgElement.style.display = 'block';
           
+=======
+          directImgElement.style.pointerEvents = 'auto'; // Prevent image from interfering with gestures
+
+>>>>>>> 8108499538a259adc1e5422517c2d90e4396b27d
           // Clear timeout on successful load of direct image
           directImgElement.addEventListener('load', ((web.Event event) {
             clearTimeoutForViewId();

@@ -305,7 +305,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
   bool _htmlError = false; // NEW: Track when HTML also fails
   bool _waitingForHtml = false; // Track when we're trying HTML
   final GlobalKey _key = GlobalKey();
-  late final String _viewType;
+  late String _viewType;
   Matrix4? _lastTransformation;
   // Animation controller for smoother transformation updates
   late AnimationController _transformSyncController;
@@ -402,7 +402,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       final displayId = widget.uniqueId ?? widget.displayName.hashCode;
       final newViewType = 'html-image-$displayId-${DateTime.now().millisecondsSinceEpoch}';
       
-      // Update view type
+      // Update view type (now allowed since it's not final)
       _viewType = newViewType;
       
       // Re-register HTML fallback with new view type and URL
@@ -606,7 +606,6 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         }
       } catch (e) {
         // Web storage cache failed, continue with normal loading
-        print('[CustomNetworkImage] Cache check failed: $e');
       }
     }
     
@@ -1510,6 +1509,7 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
         isAntiAlias: widget.isAntiAlias,
         errorBuilder: (context, error, stackTrace) {
           if (kIsWeb) {
+            print('[CustomNetworkImage] errorBuilder: $error');
             // We're already in error state, use HTML fallback
             return _buildHtmlImageView();
           } else {
@@ -1544,8 +1544,8 @@ class _CustomNetworkImageState extends State<CustomNetworkImage> with SingleTick
       );
     }
     
-    // PERFORMANCE FIX: Only add context menu support if enabled (web only)
-    if (widget.enableContextMenu && kIsWeb) {
+    // PERFORMANCE FIX: Only add context menu support if enabled (web only) and not on HTML fallback
+    if (widget.enableContextMenu && kIsWeb && !_loadError) {
       wrappedWidget = _buildContextMenuWrapper(wrappedWidget);
     }
     
